@@ -1,19 +1,27 @@
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import train_test_split
+import xgboost as xgb
+
+seed = 42
 
 
-def load_data():
+def load_data(debug=False):
+    lines = 100 if debug else None
     df_train = pd.read_csv('../data/train.csv',
                            parse_dates=['Date'],
                            date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
+                           nrows=lines,
                            low_memory=False)
 
     df_test = pd.read_csv('../data/test.csv',
                           parse_dates=['Date'],
                           date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
+                          nrows=lines,
                           low_memory=False)
 
-    df_store = pd.read_csv('../data/store.csv')
+    df_store = pd.read_csv('../data/store.csv',
+                           nrows=lines)
 
     df_train['Train'] = True
     df_test['Train'] = False
@@ -27,30 +35,38 @@ def load_data():
     return df, df_store
 
 
-def competition_open_datetime(line):
-    try:
-        date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
-        return pd.to_datetime(date)
-    except:
-        return np.nan
-
-
 def extract_features(df_raw, df_store_raw):
     df, sales_features, features_y = extract_sales_feat(df_raw)
 
     df_store, store_features = extract_store_feat(df_store_raw)
 
     # construct the feature matrix
-    feat_matrix = pd.merge(df[sales_features], df_store[store_features], how='left', on=['Store'])
+    feat_matrix = pd.merge(df[list(set(sales_features + features_y))], df_store[store_features], how='left',
+                           on=['Store'])
 
     # all missing values to -1
-    feat_matrix.fillna(-1)
+    features_x = list(set(sales_features + store_features))
+    features_x.remove("Train")
+    features_x.remove("Store")
+    for feature in features_x:
+        feat_matrix[feature] = feat_matrix[feature].fillna(-1)
 
-    print("all features:\n", list(set(sales_features + store_features)))
+    process_outliers(feat_matrix, features_x, ['SalesLog'])
+
+    print("all features:", features_x)
+    feat_matrix.info()
     print("target:", features_y)
-    print("feature matrix shape:", feat_matrix.shape)
+    print("feature matrix dimension:", feat_matrix.shape)
 
     return feat_matrix
+
+
+def competition_open_datetime(line):
+    try:
+        date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
+        return pd.to_datetime(date)
+    except:
+        return np.nan
 
 
 def extract_store_feat(df_store_raw):
@@ -71,7 +87,7 @@ def extract_sales_feat(df_raw):
     df = df_raw.loc[~((df_raw['Open'] == 1) & (df_raw['Sales'] == 0))].copy()
 
     features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Train']
-    features_y = ['SalesLog']
+    features_y = ['SalesLog', 'Sales']
 
     # log scale
     df.loc[df['Train'], 'SalesLog'] = np.log1p(df.loc[df['Train']]['Sales'])
@@ -100,3 +116,79 @@ def extract_sales_feat(df_raw):
     features_x.append('DateInt')
 
     return df, features_x, features_y
+
+
+def mad_based_outlier(points, thresh=3.5):
+    if points.empty:
+        return False
+    if len(points.shape) == 1:
+        points = points[:, None]
+    median = np.median(points, axis=0)
+    diff = np.sum((points - median) ** 2, axis=-1)
+    diff = np.sqrt(diff)
+    med_abs_deviation = np.median(diff)
+
+    if med_abs_deviation == 0:
+        return False
+
+    modified_z_score = 0.6745 * diff / med_abs_deviation
+
+    return modified_z_score > thresh
+
+
+def to_weight(y):
+    w = np.zeros(y.shape, dtype=float)
+    ind = y != 0
+    w[ind] = 1. / (y[ind] ** 2)
+    return w
+
+
+def rmspe(yhat, y):
+    w = to_weight(y)
+    result = np.sqrt(np.mean(w * (y - yhat) ** 2))
+    return result
+
+
+def rmspe_xg(yhat, y):
+    y = y.get_label()
+    y = np.exp(y) - 1
+    yhat = np.exp(yhat) - 1
+    w = to_weight(y)
+    result = np.sqrt(np.mean(w * (y - yhat) ** 2))
+    return "rmspe", result
+
+
+def process_outliers(df, features_x, features_y):
+    # remove outliers with mad >= 3
+    for store in df['Store'].unique():
+        df.loc[(df['Train']) & (df['Store'] == store), 'Outlier'] = \
+            mad_based_outlier(df.loc[(df['Train']) & (df['Store'] == store)]['Sales'], 3)
+
+    outlier_df = df.loc[(df['Train']) & (df['Outlier'])]
+
+    if outlier_df.shape[0] > 0:
+        x_train, x_test, y_train, y_test = train_test_split(
+            df.loc[(df['Train']) & (df['Outlier'] == False)][features_x],
+            df.loc[(df['Train']) & (df['Outlier'] == False)][features_y],
+            test_size=0.1, random_state=seed)
+
+        dtrain = xgb.DMatrix(x_train, y_train)
+        dtest = xgb.DMatrix(x_test, y_test)
+
+        num_round = 20000
+        evallist = [(dtrain, 'train'), (dtest, 'test')]
+        param = {'bst:max_depth': 12,
+                 'bst:eta': 0.02,
+                 'subsample': 0.9,
+                 'colsample_bytree': 0.7,
+                 'silent': 1,
+                 'objective': 'reg:linear',
+                 'nthread': 8,
+                 'seed': seed}
+
+        bst = xgb.train(param, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=300, early_stopping_rounds=300)
+
+        dpred = xgb.DMatrix(outlier_df[features_x])
+        ypred_bst = bst.predict(dpred)
+        df.loc[(df['Train']) & (df['Outlier']), 'SalesLog'] = ypred_bst
+        df.loc[(df['Train']) & (df['Outlier']), 'Sales'] = np.exp(ypred_bst) - 1
