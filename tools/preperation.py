@@ -2,11 +2,17 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
+from pathlib import Path
 
 seed = 42
+feat_matrix_pkl = '../data/feat_matrix.pkl'
 
 
 def load_data(debug=False):
+    if already_extracted():
+        print("features are previously extracted")
+        return None, None
+
     lines = 100 if debug else None
     df_train = pd.read_csv('../data/train.csv',
                            parse_dates=['Date'],
@@ -74,7 +80,15 @@ def recent_features(df):
     return store_sales / store_days, store_customers / store_days
 
 
+def already_extracted():
+    file = Path(feat_matrix_pkl)
+    return file.is_file()
+
+
 def extract_features(df_raw, df_store_raw):
+    if already_extracted():
+        return pd.read_pickle(feat_matrix_pkl)
+
     df_sales, sales_features, features_y = extract_sales_feat(df_raw)
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     df_store, store_features = extract_store_feat(df_store_raw)
@@ -90,6 +104,8 @@ def extract_features(df_raw, df_store_raw):
     print("all features:", features_x)
     print("target:", features_y)
     print("feature matrix dimension:", feat_matrix.shape)
+
+    feat_matrix.to_pickle(feat_matrix_pkl)
 
     return feat_matrix
 
