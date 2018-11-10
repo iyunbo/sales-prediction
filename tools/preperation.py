@@ -35,30 +35,69 @@ def load_data(debug=False):
     return df, df_store
 
 
-def extract_features(df_raw, df_store_raw):
-    df, sales_features, features_y = extract_sales_feat(df_raw)
+def extract_recent_data(df_raw, features_x):
+    df = df_raw.copy()
+    sales_per_day, customers_per_day = recent_features(df)
+    sales_per_day_last_month, customers_per_day_last_month = recent_features(
+        df.loc[(df['DateInt'] > 20150630) & (df['DateInt'] <= 20150731)])
+    sales_per_day_last_3m, customers_per_day_last_3m = recent_features(
+        df.loc[(df['DateInt'] > 20150430) & (df['DateInt'] <= 20150731)])
 
+    df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
+    df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
+    df = pd.merge(df, sales_per_day_last_month.reset_index(name='AvgSalesMonth'), how='left', on=['Store'])
+    df = pd.merge(df, customers_per_day_last_month.reset_index(name='AvgCustomersMonth'), how='left', on=['Store'])
+    df = pd.merge(df, sales_per_day_last_3m.reset_index(name='AvgSales3Months'), how='left', on=['Store'])
+    df = pd.merge(df, customers_per_day_last_3m.reset_index(name='AvgCustomers3Months'), how='left', on=['Store'])
+
+    features_x.append("AvgSales")
+    features_x.append("AvgCustomers")
+    features_x.append("AvgSalesMonth")
+    features_x.append("AvgCustomersMonth")
+    features_x.append("AvgSales3Months")
+    features_x.append("AvgCustomers3Months")
+
+    return df, features_x
+
+
+def recent_features(df):
+    store_sales = df.groupby(['Store'])['Sales'].sum()
+    store_customers = df.groupby(['Store'])['Customers'].sum()
+    store_days = df.groupby(['Store'])['DateInt'].count()
+
+    return store_sales / store_days, store_customers / store_days
+
+
+def extract_features(df_raw, df_store_raw):
+    df_sales, sales_features, features_y = extract_sales_feat(df_raw)
+    df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     df_store, store_features = extract_store_feat(df_store_raw)
 
     # construct the feature matrix
-    feat_matrix = pd.merge(df[list(set(sales_features + features_y))], df_store[store_features], how='left',
+    feat_matrix = pd.merge(df_sales[list(set(sales_features + features_y))], df_store[store_features], how='left',
                            on=['Store'])
+    features_x = selected_features(sales_features, store_features)
 
-    # all missing values to -1
-    features_x = list(set(sales_features + store_features))
-    features_x.remove("Train")
-    features_x.remove("Store")
-    for feature in features_x:
-        feat_matrix[feature] = feat_matrix[feature].fillna(-1)
-
+    process_missing(feat_matrix, features_x)
     process_outliers(feat_matrix, features_x, ['SalesLog'])
 
     print("all features:", features_x)
-    feat_matrix.info()
     print("target:", features_y)
     print("feature matrix dimension:", feat_matrix.shape)
 
     return feat_matrix
+
+
+def selected_features(sales_features, store_features):
+    features_x = list(set(sales_features + store_features))
+    features_x.remove("Train")
+    features_x.remove("Store")
+    return features_x
+
+
+def process_missing(feat_matrix, features_x):
+    for feature in features_x:
+        feat_matrix[feature] = feat_matrix[feature].fillna(-1)
 
 
 def competition_open_datetime(line):
@@ -106,7 +145,7 @@ def extract_sales_feat(df_raw):
     df['Year'] = df['Year'].fillna(0)
     df['DayOfMonth'] = df['DayOfMonth'].fillna(0)
     df['DayOfYear'] = df['DayOfYear'].fillna(0)
-    df['DateInt'] = df['Date'].astype(np.int64)
+    df['DateInt'] = date_feat.year * 10000 + date_feat.month * 100 + date_feat.day
     features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
