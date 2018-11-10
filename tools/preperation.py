@@ -38,24 +38,30 @@ def load_data(debug=False):
 def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
     sales_per_day, customers_per_day = recent_features(df)
-    sales_per_day_last_month, customers_per_day_last_month = recent_features(
-        df.loc[(df['DateInt'] > 20150630) & (df['DateInt'] <= 20150731)])
     sales_per_day_last_3m, customers_per_day_last_3m = recent_features(
         df.loc[(df['DateInt'] > 20150430) & (df['DateInt'] <= 20150731)])
+    sales_per_day_last_month, customers_per_day_last_month = recent_features(
+        df.loc[(df['DateInt'] > 20150630) & (df['DateInt'] <= 20150731)])
+    sales_per_day_last_week, customers_per_day_last_week = recent_features(
+        df.loc[(df['DateInt'] > 20150724) & (df['DateInt'] <= 20150731)])
 
     df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
-    df = pd.merge(df, sales_per_day_last_month.reset_index(name='AvgSalesMonth'), how='left', on=['Store'])
-    df = pd.merge(df, customers_per_day_last_month.reset_index(name='AvgCustomersMonth'), how='left', on=['Store'])
     df = pd.merge(df, sales_per_day_last_3m.reset_index(name='AvgSales3Months'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day_last_3m.reset_index(name='AvgCustomers3Months'), how='left', on=['Store'])
+    df = pd.merge(df, sales_per_day_last_month.reset_index(name='AvgSalesMonth'), how='left', on=['Store'])
+    df = pd.merge(df, customers_per_day_last_month.reset_index(name='AvgCustomersMonth'), how='left', on=['Store'])
+    df = pd.merge(df, sales_per_day_last_week.reset_index(name='AvgSalesWeek'), how='left', on=['Store'])
+    df = pd.merge(df, customers_per_day_last_week.reset_index(name='AvgCustomersWeek'), how='left', on=['Store'])
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
-    features_x.append("AvgSalesMonth")
-    features_x.append("AvgCustomersMonth")
     features_x.append("AvgSales3Months")
     features_x.append("AvgCustomers3Months")
+    features_x.append("AvgSalesMonth")
+    features_x.append("AvgCustomersMonth")
+    features_x.append("AvgSalesWeek")
+    features_x.append("AvgCustomersWeek")
 
     return df, features_x
 
