@@ -106,3 +106,4 @@ venv.bak/
 .idea
 nohup.out
 *.pkl
+features_x.txt

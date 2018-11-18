@@ -3,9 +3,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 from pathlib import Path
+import pickle
 
 seed = 42
 feat_matrix_pkl = '../data/feat_matrix.pkl'
+feat_file = '../data/features_x.txt'
 
 
 def load_data(debug=False):
@@ -26,8 +28,7 @@ def load_data(debug=False):
                           nrows=lines,
                           low_memory=False)
 
-    df_store = pd.read_csv('../data/store.csv',
-                           nrows=lines)
+    df_store = pd.read_csv('../data/store.csv', nrows=lines)
 
     df_train['Train'] = True
     df_test['Train'] = False
@@ -86,28 +87,41 @@ def already_extracted():
 
 
 def extract_features(df_raw, df_store_raw):
+    feature_y = 'SalesLog'
     if already_extracted():
-        return pd.read_pickle(feat_matrix_pkl)
+        df = pd.read_pickle(feat_matrix_pkl)
+        return df, read_features(), feature_y
 
-    df_sales, sales_features, features_y = extract_sales_feat(df_raw)
+    df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     df_store, store_features = extract_store_feat(df_store_raw)
 
     # construct the feature matrix
-    feat_matrix = pd.merge(df_sales[list(set(sales_features + features_y))], df_store[store_features], how='left',
+    feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
                            on=['Store'])
     features_x = selected_features(sales_features, store_features)
 
     process_missing(feat_matrix, features_x)
-    process_outliers(feat_matrix, features_x, ['SalesLog'])
+    process_outliers(feat_matrix, features_x, [feature_y])
 
     print("all features:", features_x)
-    print("target:", features_y)
+    print("target:", feature_y)
     print("feature matrix dimension:", feat_matrix.shape)
 
     feat_matrix.to_pickle(feat_matrix_pkl)
+    features_to_file(features_x)
 
-    return feat_matrix
+    return feat_matrix, features_x, feature_y
+
+
+def features_to_file(features_x):
+    with open(feat_file, 'wb') as f:
+        pickle.dump(features_x, f)
+
+
+def read_features():
+    with open(feat_file, 'rb') as f:
+        return pickle.load(f)
 
 
 def selected_features(sales_features, store_features):
@@ -200,14 +214,13 @@ def mad_based_outlier(points, thresh=3.5):
 def to_weight(y):
     w = np.zeros(y.shape, dtype=float)
     ind = y != 0
-    w[ind] = 1. / (y[ind] ** 2)
+    w[ind] = 1./(y[ind]**2)
     return w
 
 
 def rmspe(yhat, y):
     w = to_weight(y)
-    result = np.sqrt(np.mean(w * (y - yhat) ** 2))
-    return result
+    return np.sqrt(np.mean(w * (y - yhat) ** 2))
 
 
 def rmspe_xg(yhat, y):
@@ -226,30 +239,31 @@ def process_outliers(df, features_x, features_y):
             mad_based_outlier(df.loc[(df['Train']) & (df['Store'] == store)]['Sales'], 3)
 
     outlier_df = df.loc[(df['Train']) & (df['Outlier'])]
+    df.drop(outlier_df.index, inplace=True)
 
-    if outlier_df.shape[0] > 0:
-        x_train, x_test, y_train, y_test = train_test_split(
-            df.loc[(df['Train']) & (df['Outlier'] == False)][features_x],
-            df.loc[(df['Train']) & (df['Outlier'] == False)][features_y],
-            test_size=0.1, random_state=seed)
-
-        dtrain = xgb.DMatrix(x_train, y_train)
-        dtest = xgb.DMatrix(x_test, y_test)
-
-        num_round = 20000
-        evallist = [(dtrain, 'train'), (dtest, 'test')]
-        param = {'bst:max_depth': 12,
-                 'bst:eta': 0.02,
-                 'subsample': 0.9,
-                 'colsample_bytree': 0.7,
-                 'silent': 1,
-                 'objective': 'reg:linear',
-                 'nthread': 8,
-                 'seed': seed}
-
-        bst = xgb.train(param, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=300, early_stopping_rounds=300)
-
-        dpred = xgb.DMatrix(outlier_df[features_x])
-        ypred_bst = bst.predict(dpred)
-        df.loc[(df['Train']) & (df['Outlier']), 'SalesLog'] = ypred_bst
-        df.loc[(df['Train']) & (df['Outlier']), 'Sales'] = np.exp(ypred_bst) - 1
+    # if outlier_df.shape[0] > 0:
+    #     x_train, x_test, y_train, y_test = train_test_split(
+    #         df.loc[(df['Train']) & (df['Outlier'] == False)][features_x],
+    #         df.loc[(df['Train']) & (df['Outlier'] == False)][features_y],
+    #         test_size=0.1, random_state=seed)
+    #
+    #     dtrain = xgb.DMatrix(x_train, y_train)
+    #     dtest = xgb.DMatrix(x_test, y_test)
+    #
+    #     num_round = 20000
+    #     evallist = [(dtrain, 'train'), (dtest, 'test')]
+    #     param = {'bst:max_depth': 12,
+    #              'bst:eta': 0.02,
+    #              'subsample': 0.9,
+    #              'colsample_bytree': 0.7,
+    #              'silent': 1,
+    #              'objective': 'reg:linear',
+    #              'nthread': 8,
+    #              'seed': seed}
+    #
+    #     bst = xgb.train(param, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=300, early_stopping_rounds=300)
+    #
+    #     dpred = xgb.DMatrix(outlier_df[features_x])
+    #     ypred_bst = bst.predict(dpred)
+    #     df.loc[(df['Train']) & (df['Outlier']), 'SalesLog'] = ypred_bst
+    #     df.loc[(df['Train']) & (df['Outlier']), 'Sales'] = np.exp(ypred_bst) - 1
