@@ -28,8 +28,8 @@ def load_data(debug=False):
 
     df_store = pd.read_csv('../data/store.csv', nrows=lines)
 
-    df_train['Train'] = True
-    df_test['Train'] = False
+    df_train['Type'] = 'train'
+    df_test['Type'] = 'test'
 
     # Combine train and test set
     frames = [df_train, df_test]
@@ -43,8 +43,7 @@ def load_data(debug=False):
 def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
     sales_per_day, customers_per_day = recent_features(
-        df.loc[(df['DateInt'] <= 20150615)]
-    )
+        df.loc[(df['DateInt'] <= 20150615)])
     sales_per_day_last_3m, customers_per_day_last_3m = recent_features(
         df.loc[(df['DateInt'] > 20150315) & (df['DateInt'] <= 20150615)])
     sales_per_day_last_month, customers_per_day_last_month = recent_features(
@@ -93,16 +92,22 @@ def extract_features(df_raw, df_store_raw):
         return df, read_features(), feature_y
 
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
+    print('extract_sales_feat: done')
+    df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
+    print('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
-
+    print('extract_store_feat: done')
     # construct the feature matrix
     feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
                            on=['Store'])
+    print('construct feature matrix: done')
     features_x = selected_features(sales_features, store_features)
-
+    print('selected_features: done')
     process_missing(feat_matrix, features_x)
+    print('process_missing: done')
     process_outliers(feat_matrix)
+    print('process_outliers: done')
 
     print("all features:", features_x)
     print("target:", feature_y)
@@ -126,7 +131,7 @@ def read_features():
 
 def selected_features(sales_features, store_features):
     features_x = list(set(sales_features + store_features))
-    features_x.remove("Train")
+    features_x.remove("Type")
     features_x.remove("Store")
     return features_x
 
@@ -154,6 +159,7 @@ def extract_store_feat(df_store_raw):
         np.int64)
     # exclude Promo2 related features due to irrelevance and high missing ratio
     store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince']
+
     return df_store, store_features
 
 
@@ -161,11 +167,11 @@ def extract_sales_feat(df_raw):
     # Remove rows where store is open, but no sales.
     df = df_raw.loc[~((df_raw['Open'] == 1) & (df_raw['Sales'] == 0))].copy()
 
-    features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Train']
+    features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Type']
     features_y = ['SalesLog', 'Sales']
 
     # log scale
-    df.loc[df['Train'], 'SalesLog'] = np.log1p(df.loc[df['Train']]['Sales'])
+    df.loc[(df['Type'] == 'train'), 'SalesLog'] = np.log1p(df.loc[(df['Type'] == 'train')]['Sales'])
     # dummy code
     df['StateHoliday'] = df['StateHoliday'].astype('category').cat.codes
     df['SchoolHoliday'] = df['SchoolHoliday'].astype('category').cat.codes
@@ -235,9 +241,9 @@ def rmspe_xg(yhat, y):
 def process_outliers(df):
     # consider outliers with mad >= 3
     for store in df['Store'].unique():
-        df.loc[(df['Train']) & (df['Store'] == store) & (df['DateInt'] <= 20150615), 'Outlier'] = \
-            mad_based_outlier(df.loc[(df['Train']) & (df['Store'] == store) & (df['DateInt'] <= 20150615)]['Sales'], 3)
+        df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
+            mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'], 3)
     # fill outliers with average sale
-    outlier_df = df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615)]
-    df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615), 'SalesLog'] = np.log1p(outlier_df['AvgSales'])
-    df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615), 'Sales'] = outlier_df['AvgSales']
+    outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier'])]
+    df.loc[(df['Type'] == 'train') & (df['Outlier']), 'SalesLog'] = np.log1p(outlier_df['AvgSales'])
+    df.loc[(df['Type'] == 'train') & (df['Outlier']), 'Sales'] = outlier_df['AvgSales']

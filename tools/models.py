@@ -50,13 +50,16 @@ def run_xgboost(train_x, train_y, test_x, test_y):
 
 
 def train_test(df, features_x, feature_y):
-    train = df.loc[(df['DateInt'] <= 20150615)]
-    test = df.loc[(df['DateInt'] > 20150615)]
+    train = df.loc[(df['Type'] == 'train')]
+    train.info()
+    test = df.loc[(df['Type'] == 'validation')]
+    test.info()
+    print('features:', features_x)
     return train[features_x], test[features_x], train[feature_y], test[feature_y]
 
 
 def run_models(df_train, features_x, feature_y):
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     run_linear_regression(train_x, train_y, test_x, test_y)
-    # run_random_forest(train_x, train_y, test_x, test_y)
-    # run_xgboost(train_x, train_y, test_x, test_y)
+    run_random_forest(train_x, train_y, test_x, test_y)
+    run_xgboost(train_x, train_y, test_x, test_y)
