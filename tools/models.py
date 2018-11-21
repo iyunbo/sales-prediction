@@ -12,7 +12,7 @@ seed = 42
 def run_linear_regression(train_x, train_y, test_x, test_y):
     regressor = LinearRegression()
     regressor.fit(train_x, train_y)
-    predict = regressor.predict(test_x)
+    predict = regressor.predict(X=test_x)
     print('LinearRegression RMSPE =', rmspe(yhat=predict, y=test_y))
 
 
@@ -24,15 +24,10 @@ def run_random_forest(train_x, train_y, test_x, test_y):
 
 
 def run_xgboost(train_x, train_y, test_x, test_y):
-    regressor = xgb.XGBRegressor(max_depth=12,
-                                 eta=0.02,
-                                 subsample=0.9,
-                                 colsample_bytree=0.7,
-                                 objective='reg:linear',
-                                 nthread=8,
-                                 seed=seed)
+    regressor = xgb.XGBRegressor()
     regressor.fit(train_x, train_y)
-    print('XGBoost RMSPE =', rmspe(regressor.predict(test_x), test_y))
+    predict = regressor.predict(test_x)
+    print('XGBoost RMSPE =', rmspe(predict, test_y))
     # dtrain = xgb.DMatrix(train_x, train_y)
     # dtest = xgb.DMatrix(test_x, test_y)
     #
@@ -63,5 +58,5 @@ def train_test(df, features_x, feature_y):
 def run_models(df_train, features_x, feature_y):
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     run_linear_regression(train_x, train_y, test_x, test_y)
-    run_random_forest(train_x, train_y, test_x, test_y)
-    run_xgboost(train_x, train_y, test_x, test_y)
+    # run_random_forest(train_x, train_y, test_x, test_y)
+    # run_xgboost(train_x, train_y, test_x, test_y)

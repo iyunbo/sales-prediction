@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-import xgboost as xgb
 from pathlib import Path
 import pickle
 
@@ -44,13 +42,15 @@ def load_data(debug=False):
 
 def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
-    sales_per_day, customers_per_day = recent_features(df)
+    sales_per_day, customers_per_day = recent_features(
+        df.loc[(df['DateInt'] <= 20150615)]
+    )
     sales_per_day_last_3m, customers_per_day_last_3m = recent_features(
-        df.loc[(df['DateInt'] > 20150430) & (df['DateInt'] <= 20150731)])
+        df.loc[(df['DateInt'] > 20150315) & (df['DateInt'] <= 20150615)])
     sales_per_day_last_month, customers_per_day_last_month = recent_features(
-        df.loc[(df['DateInt'] > 20150630) & (df['DateInt'] <= 20150731)])
+        df.loc[(df['DateInt'] > 20150515) & (df['DateInt'] <= 20150615)])
     sales_per_day_last_week, customers_per_day_last_week = recent_features(
-        df.loc[(df['DateInt'] > 20150724) & (df['DateInt'] <= 20150731)])
+        df.loc[(df['DateInt'] > 20150608) & (df['DateInt'] <= 20150615)])
 
     df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
@@ -102,7 +102,7 @@ def extract_features(df_raw, df_store_raw):
     features_x = selected_features(sales_features, store_features)
 
     process_missing(feat_matrix, features_x)
-    process_outliers(feat_matrix, features_x, [feature_y])
+    process_outliers(feat_matrix)
 
     print("all features:", features_x)
     print("target:", feature_y)
@@ -214,7 +214,7 @@ def mad_based_outlier(points, thresh=3.5):
 def to_weight(y):
     w = np.zeros(y.shape, dtype=float)
     ind = y != 0
-    w[ind] = 1./(y[ind]**2)
+    w[ind] = 1. / (y[ind] ** 2)
     return w
 
 
@@ -232,38 +232,12 @@ def rmspe_xg(yhat, y):
     return "rmspe", result
 
 
-def process_outliers(df, features_x, features_y):
-    # remove outliers with mad >= 3
+def process_outliers(df):
+    # consider outliers with mad >= 3
     for store in df['Store'].unique():
-        df.loc[(df['Train']) & (df['Store'] == store), 'Outlier'] = \
-            mad_based_outlier(df.loc[(df['Train']) & (df['Store'] == store)]['Sales'], 3)
-
-    outlier_df = df.loc[(df['Train']) & (df['Outlier'])]
-    df.drop(outlier_df.index, inplace=True)
-
-    # if outlier_df.shape[0] > 0:
-    #     x_train, x_test, y_train, y_test = train_test_split(
-    #         df.loc[(df['Train']) & (df['Outlier'] == False)][features_x],
-    #         df.loc[(df['Train']) & (df['Outlier'] == False)][features_y],
-    #         test_size=0.1, random_state=seed)
-    #
-    #     dtrain = xgb.DMatrix(x_train, y_train)
-    #     dtest = xgb.DMatrix(x_test, y_test)
-    #
-    #     num_round = 20000
-    #     evallist = [(dtrain, 'train'), (dtest, 'test')]
-    #     param = {'bst:max_depth': 12,
-    #              'bst:eta': 0.02,
-    #              'subsample': 0.9,
-    #              'colsample_bytree': 0.7,
-    #              'silent': 1,
-    #              'objective': 'reg:linear',
-    #              'nthread': 8,
-    #              'seed': seed}
-    #
-    #     bst = xgb.train(param, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=300, early_stopping_rounds=300)
-    #
-    #     dpred = xgb.DMatrix(outlier_df[features_x])
-    #     ypred_bst = bst.predict(dpred)
-    #     df.loc[(df['Train']) & (df['Outlier']), 'SalesLog'] = ypred_bst
-    #     df.loc[(df['Train']) & (df['Outlier']), 'Sales'] = np.exp(ypred_bst) - 1
+        df.loc[(df['Train']) & (df['Store'] == store) & (df['DateInt'] <= 20150615), 'Outlier'] = \
+            mad_based_outlier(df.loc[(df['Train']) & (df['Store'] == store) & (df['DateInt'] <= 20150615)]['Sales'], 3)
+    # fill outliers with average sale
+    outlier_df = df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615)]
+    df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615), 'SalesLog'] = np.log1p(outlier_df['AvgSales'])
+    df.loc[(df['Train']) & (df['Outlier']) & (df['DateInt'] <= 20150615), 'Sales'] = outlier_df['AvgSales']
