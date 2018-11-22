@@ -34,7 +34,7 @@ def load_data(debug=False):
 
     # Combine train and test set
     frames = [df_train, df_test]
-    df = pd.concat(frames)
+    df = pd.concat(frames, sort=True)
 
     print("data loaded:", df.shape)
     print("store loaded:", df_store.shape)
