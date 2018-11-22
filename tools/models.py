@@ -24,7 +24,7 @@ def run_random_forest(train_x, train_y, test_x, test_y):
 
 
 def run_xgboost(train_x, train_y, test_x, test_y):
-    regressor = xgb.XGBRegressor()
+    regressor = xgb.XGBRegressor(nthread=8)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(test_x)
     print('XGBoost RMSPE =', rmspe(predict, test_y))
@@ -51,10 +51,7 @@ def run_xgboost(train_x, train_y, test_x, test_y):
 
 def train_test(df, features_x, feature_y):
     train = df.loc[(df['Type'] == 'train')]
-    train.info()
     test = df.loc[(df['Type'] == 'validation')]
-    test.info()
-    print('features:', features_x)
     return train[features_x], test[features_x], train[feature_y], test[feature_y]
 
 
