@@ -11,6 +11,7 @@ feat_file = '../data/features_x.txt'
 def load_data(debug=False):
     if already_extracted():
         print("features are previously extracted")
+        print("features:", read_features())
         return None, None
 
     lines = 100 if debug else None
@@ -149,6 +150,13 @@ def competition_open_datetime(line):
         return np.nan
 
 
+def competition_dist(line):
+    try:
+        return np.log(int(line['CompetitionDistance']))
+    except:
+        return 9999999
+
+
 def extract_store_feat(df_store_raw):
     df_store = df_store_raw.copy()
     # Convert store type and Assortment to numerical categories
@@ -157,8 +165,9 @@ def extract_store_feat(df_store_raw):
     # Convert competition open year and month to int
     df_store['CompetitionOpenSince'] = df_store.apply(lambda row: competition_open_datetime(row), axis=1).astype(
         np.int64)
+    df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
     # exclude Promo2 related features due to irrelevance and high missing ratio
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince']
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2']
 
     return df_store, store_features
 
@@ -225,6 +234,9 @@ def to_weight(y):
 
 
 def rmspe(yhat, y):
+    # convert to sales value as the y are in log scale
+    y = np.exp(y) - 1
+    yhat = np.exp(yhat) - 1
     w = to_weight(y)
     return np.sqrt(np.mean(w * (y - yhat) ** 2))
 
