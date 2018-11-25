@@ -241,6 +241,11 @@ def rmspe(yhat, y):
     return np.sqrt(np.mean(w * (y - yhat) ** 2))
 
 
+def rmspe_score(y, yhat):
+    w = to_weight(y)
+    return np.sqrt(np.mean(w * (y - yhat) ** 2))
+
+
 def rmspe_xg(yhat, y):
     y = y.get_label()
     y = np.exp(y) - 1
