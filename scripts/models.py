@@ -105,6 +105,7 @@ def train_xgboost(df_train, features_x, feature_y):
               'seed': seed,
               'silent': True}
 
+    print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
                            early_stopping_rounds=500)
     xgb.plot_importance(best_model)
