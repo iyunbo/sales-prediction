@@ -135,7 +135,7 @@ def tune_xgboost(df_train, features_x, feature_y):
                                       param_grid,
                                       n_iter=200,
                                       n_jobs=6,
-                                      verbose=1,
+                                      verbose=0,
                                       cv=5,
                                       scoring=get_scorer(),
                                       refit=False,
