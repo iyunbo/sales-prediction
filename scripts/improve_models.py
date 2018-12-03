@@ -1,5 +1,5 @@
 from preperation import load_data, extract_features
-from models import train_random_forest, train_xgboost
+from models import train_random_forest, train_xgboost, tune_xgboost
 
 
 def main():
@@ -10,7 +10,7 @@ def main():
               'min_weight_fraction_leaf': 0, 'n_estimators': 10, 'n_jobs': 1, 'oob_score': True, 'random_state': None,
               'verbose': 0, 'warm_start': True}
     # train_random_forest(feat_matrix.loc[~(feat_matrix['Type'] == 'test')], features_x, feature_y, params)
-    train_xgboost(feat_matrix.loc[~(feat_matrix['Type'] == 'test')], features_x, feature_y)
+    tune_xgboost(feat_matrix.loc[~(feat_matrix['Type'] == 'test')], features_x, feature_y)
 
 
 if __name__ == '__main__':

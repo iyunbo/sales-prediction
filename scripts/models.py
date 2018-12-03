@@ -112,3 +112,44 @@ def train_xgboost(df_train, features_x, feature_y):
     # evaluation
     predict = best_model.predict(dtest)
     print('Improved XGBoost RMSPE = ', rmspe(predict, test_y))
+
+
+def tune_xgboost(df_train, features_x, feature_y):
+    # split train test
+    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    param_grid = {
+        'silent': [False],
+        'max_depth': [12, 13, 14, 15, 20],
+        'learning_rate': [0.001, 0.01, 0.1, 0.2, 0, 3],
+        'subsample': [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        'colsample_bylevel': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        'min_child_weight': [0.5, 1.0, 3.0, 5.0, 7.0, 10.0],
+        'gamma': [0, 0.25, 0.5, 1.0],
+        'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
+        'n_estimators': [100]}
+
+    regressor = xgb.XGBRegressor(nthread=6)
+
+    rs_regressor = RandomizedSearchCV(regressor,
+                                      param_grid,
+                                      n_iter=200,
+                                      n_jobs=6,
+                                      verbose=1,
+                                      cv=5,
+                                      scoring=get_scorer(),
+                                      refit=False,
+                                      random_state=seed)
+    rs_regressor.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=50, eval_set=[(test_x, test_y)])
+
+    best_score = rs_regressor.best_score_
+    best_params = rs_regressor.best_params_
+    print("Best score: {}".format(best_score))
+    print("Best params: ")
+    for param_name in sorted(best_params.keys()):
+        print('%s: %r' % (param_name, best_params[param_name]))
+
+    best_model = xgb.XGBRegressor(nthread=6, params=rs_regressor.best_params_)
+    best_model.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=10, eval_set=[(test_x, test_y)])
+    predict = best_model.predict(test_x)
+    print('Improved XGBoost RMSPE = ', rmspe(predict, test_y))
