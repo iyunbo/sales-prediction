@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics.scorer import make_scorer
 from preperation import rmspe, rmspe_xg, rmspe_score
 from sklearn.model_selection import RandomizedSearchCV
+import time
 
 seed = 42
 
@@ -115,9 +116,11 @@ def train_xgboost(df_train, features_x, feature_y):
 
 
 def tune_xgboost(df_train, features_x, feature_y):
+    start_time = time.time()
     # split train test
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     param_grid = {
+        'tree_method': ['gpu_hist'],
         'silent': [False],
         'max_depth': [12, 13, 14, 15, 20],
         'learning_rate': [0.001, 0.01, 0.1, 0.2, 0, 3],
@@ -129,18 +132,18 @@ def tune_xgboost(df_train, features_x, feature_y):
         'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
         'n_estimators': [100]}
 
-    regressor = xgb.XGBRegressor(nthread=6)
+    regressor = xgb.XGBRegressor(nthread=2)
 
     rs_regressor = RandomizedSearchCV(regressor,
                                       param_grid,
-                                      n_iter=200,
-                                      n_jobs=6,
-                                      verbose=0,
+                                      n_iter=50,
+                                      n_jobs=4,
+                                      verbose=1,
                                       cv=5,
                                       scoring=get_scorer(),
                                       refit=False,
                                       random_state=seed)
-    rs_regressor.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=50, eval_set=[(test_x, test_y)])
+    rs_regressor.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=30, eval_set=[(test_x, test_y)])
 
     best_score = rs_regressor.best_score_
     best_params = rs_regressor.best_params_
@@ -149,7 +152,9 @@ def tune_xgboost(df_train, features_x, feature_y):
     for param_name in sorted(best_params.keys()):
         print('%s: %r' % (param_name, best_params[param_name]))
 
-    best_model = xgb.XGBRegressor(nthread=6, params=rs_regressor.best_params_)
-    best_model.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=10, eval_set=[(test_x, test_y)])
+    best_model = xgb.XGBRegressor(nthread=8, params=rs_regressor.best_params_)
+    best_model.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=30, eval_set=[(test_x, test_y)])
     predict = best_model.predict(test_x)
     print('Improved XGBoost RMSPE = ', rmspe(predict, test_y))
+
+    print("--- %s hours ---" % ((time.time() - start_time) / (60 * 60)))
