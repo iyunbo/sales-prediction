@@ -3,7 +3,7 @@
 ### A machine learning project for Udacity's Machine Learning Engineer NanoDegrees
 
 #### Project description
-A kaggle competitions for sales forecasting
+A kaggle competition for sales forecasting
 
 [Project link](https://www.kaggle.com/c/rossmann-store-sales)
 
