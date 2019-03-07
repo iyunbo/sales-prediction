@@ -28,11 +28,12 @@ data visualization and analysis in form of jupyter notebook
 
 python code for models training:
 
-    - models.py: methods for training models
+    - models.py: methods for models training and evaluation
     - preperation.py: data cleaning and data preparation code
     - run_models.py: run basic models without tuning
     - train_random_forest.py: tune randome forest model and evaluate the result
     - train_xgboost.py: tune xgboost model and evaluate the result
+    - run_prediction.py: make prediciton with the persistent models (*.joblib) and evaluate the result
     
 - some big data files are in the google drive as following link:
 
