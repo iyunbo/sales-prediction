@@ -43,14 +43,23 @@ def load_data(debug=False):
 
 def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
-    sales_per_day, customers_per_day = recent_features(
+    df['Holiday'] = (df['SchoolHoliday'].isin([1])) | (df['StateHoliday'].isin(['a', 'b', 'c']))
+
+    sales_per_day, customers_per_day = calculate_avg(
         df.loc[(df['DateInt'] <= 20150615)])
-    sales_per_day_last_3m, customers_per_day_last_3m = recent_features(
+    sales_per_day_last_3m, customers_per_day_last_3m = calculate_avg(
         df.loc[(df['DateInt'] > 20150315) & (df['DateInt'] <= 20150615)])
-    sales_per_day_last_month, customers_per_day_last_month = recent_features(
+    sales_per_day_last_month, customers_per_day_last_month = calculate_avg(
         df.loc[(df['DateInt'] > 20150515) & (df['DateInt'] <= 20150615)])
-    sales_per_day_last_week, customers_per_day_last_week = recent_features(
+    sales_per_day_last_week, customers_per_day_last_week = calculate_avg(
         df.loc[(df['DateInt'] > 20150608) & (df['DateInt'] <= 20150615)])
+    sales_school_holiday_per_day, _ = calculate_avg(
+        df.loc[(df['SchoolHoliday'] == 1)])
+    sales_state_holiday_per_day, _ = calculate_avg(
+        df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
+    sales_promo_per_day, _ = calculate_avg(
+        df.loc[(df['Promo'] == 1)])
+    holidays = calculate_holidays(df)
 
     df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
@@ -60,6 +69,10 @@ def extract_recent_data(df_raw, features_x):
     df = pd.merge(df, customers_per_day_last_month.reset_index(name='AvgCustomersMonth'), how='left', on=['Store'])
     df = pd.merge(df, sales_per_day_last_week.reset_index(name='AvgSalesWeek'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day_last_week.reset_index(name='AvgCustomersWeek'), how='left', on=['Store'])
+    df = pd.merge(df, sales_school_holiday_per_day.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, sales_state_holiday_per_day.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, sales_promo_per_day.reset_index(name='AvgPromo'), how='left', on=['Store'])
+    df = pd.merge(df, holidays, how='left', on=['Store', 'Date'])
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
@@ -69,16 +82,31 @@ def extract_recent_data(df_raw, features_x):
     features_x.append("AvgCustomersMonth")
     features_x.append("AvgSalesWeek")
     features_x.append("AvgCustomersWeek")
+    features_x.append("AvgSchoolHoliday")
+    features_x.append("AvgStateHoliday")
+    features_x.append("AvgPromo")
+    features_x.append("HolidayLastWeek")
+    features_x.append("HolidayNextWeek")
 
     return df, features_x
 
 
-def recent_features(df):
-    store_sales = df.groupby(['Store'])['Sales'].sum()
-    store_customers = df.groupby(['Store'])['Customers'].sum()
-    store_days = df.groupby(['Store'])['DateInt'].count()
+def calculate_avg(df):
+    store_sales = df.groupby(['Store'])['Sales'].median()
+    store_customers = df.groupby(['Store'])['Customers'].median()
 
-    return store_sales / store_days, store_customers / store_days
+    return store_sales, store_customers
+
+
+def calculate_holidays(df):
+    stores = []
+    for store in df['Store'].unique():
+        df_store = df[df['Store'] == store].set_index('Date')
+        df_store['HolidayLastWeek'] = df_store.rolling(7, min_periods=1)['Holiday'].sum()
+        df_store_inverse = df_store.iloc[::-1]
+        df_store['HolidayNextWeek'] = df_store_inverse.rolling(7, min_periods=1)['Holiday'].sum()
+        stores.append(df_store[['Store', 'HolidayLastWeek', 'HolidayNextWeek']])
+    return pd.concat(stores)
 
 
 def already_extracted():
@@ -142,14 +170,16 @@ def process_missing(feat_matrix, features_x):
         feat_matrix[feature] = feat_matrix[feature].fillna(-1)
 
 
+# noinspection PyBroadException
 def competition_open_datetime(line):
     try:
         date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
-        return pd.to_datetime(date)
+        return (pd.to_datetime("2015-08-01") - pd.to_datetime(date)).days
     except:
-        return np.nan
+        return -1
 
 
+# noinspection PyBroadException
 def competition_dist(line):
     try:
         return np.log(int(line['CompetitionDistance']))
@@ -167,7 +197,7 @@ def extract_store_feat(df_store_raw):
         np.int64)
     df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
     # exclude Promo2 related features due to irrelevance and high missing ratio
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2']
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince']
 
     return df_store, store_features
 
