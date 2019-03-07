@@ -31,3 +31,7 @@ python code for models training:
     - run_models.py: run basic models without tuning
     - train_random_forest.py: tune randome forest model and evaluate the result
     - train_xgboost.py: tune xgboost model and evaluate the result
+    
+- some data files such as *.joblib, feat_matrix.pkl are too big to push to github, keep them in the google drive as following link:
+
+[Big files in Google Drive](https://drive.google.com/open?id=1J0LKDANYdk-bSciZjzH_GZN31PLY1mKv)
