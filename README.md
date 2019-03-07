@@ -5,7 +5,7 @@
 #### Project description
 A kaggle competition for sales forecasting
 
-[Project link](https://www.kaggle.com/c/rossmann-store-sales)
+[Kaggle Project link](https://www.kaggle.com/c/rossmann-store-sales)
 
 #### Project structure
 ![project structure](img/structure.png)
