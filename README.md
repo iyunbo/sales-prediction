@@ -14,9 +14,7 @@ A kaggle competition for sales forecasting
 contains different dataset files for training and validation from project description (https://www.kaggle.com/c/rossmann-store-sales/data), 
 it also contains intermediate results: 
 
-    - feat_matrix.pkl: persistence of feature matrix
     - features_x.txt: list of features for training
-    - *.joblib: persistence of models
 
 - notebooks directory
 
@@ -32,6 +30,9 @@ python code for models training:
     - train_random_forest.py: tune randome forest model and evaluate the result
     - train_xgboost.py: tune xgboost model and evaluate the result
     
-- some data files such as *.joblib, feat_matrix.pkl are too big to push to github, keep them in the google drive as following link:
+- some big data files are in the google drive as following link:
 
 [Big files in Google Drive](https://drive.google.com/open?id=1J0LKDANYdk-bSciZjzH_GZN31PLY1mKv)
+
+    - feat_matrix.pkl: persistence of feature matrix
+    - *.joblib: persistence of models
