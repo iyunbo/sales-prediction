@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import xgboost as xgb
-from joblib import dump
+from joblib import dump, load
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics.scorer import make_scorer
@@ -47,6 +47,19 @@ def run_models(df_train, features_x, feature_y):
     run_linear_regression(train_x, train_y, test_x, test_y)
     run_random_forest(train_x, train_y, test_x, test_y)
     run_xgboost(train_x, train_y, test_x, test_y)
+
+
+def run_tuned_models(df_train, features_x, feature_y):
+    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    model_file = "Random Forest-1549358024.6574237.joblib"
+    load_and_evaluate(model_file, test_x, test_y)
+
+
+def load_and_evaluate(model_file, test_x, test_y):
+    print('loading model from [', model_file, "]")
+    regressor = load("../data/" + model_file)
+    predict = regressor.predict(test_x)
+    print('RandomForestRegressor RMSPE = ', rmspe(predict, test_y))
 
 
 def get_scorer():
