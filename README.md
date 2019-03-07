@@ -11,7 +11,7 @@ A kaggle competition for sales forecasting
 ![project structure](img/structure.png)
 - data directory
 
-contains different dataset files for training and test from project description (https://www.kaggle.com/c/rossmann-store-sales/data), 
+contains different dataset files for training and test from [project data page](https://www.kaggle.com/c/rossmann-store-sales/data), 
 it also contains intermediate results: 
 
     - features_x.txt: list of features for training
