@@ -105,7 +105,5 @@ venv.bak/
 
 .idea
 nohup.out
-*.pkl
-features_x.txt
 *.joblib
-*.png
+*.pkl
