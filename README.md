@@ -26,8 +26,8 @@ contains data visualization and analysis in form of jupyter notebook
 contains python code for models training:
 
     - **2-run_basics.py** - run basic models without tuning for model comparison
-    - **3-tune_random_forest.py** - tune random forest model and determine the optimized parameters
-    - **3-tune_xgboost.py: tune** - xgboost model and determine the optimized parameters
+    - **3-tune_random_forest.py** - tune random forest model and determine the optimized parameters (duration > 10h)
+    - **3-tune_xgboost.py: tune** - xgboost model and determine the optimized parameters (duration > 10h)
     - **4-train_random_forest.py** - train random forest with the optimized (step 3) parameters
     - **4-train_xgboost.py** - train xgboost with the optimized (step 3) parameters
     - **5-evaluate.py** - make prediction with the persistent models (*.joblib, *.model) and evaluate the result
