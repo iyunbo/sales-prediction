@@ -1,5 +1,5 @@
 from models import tune_xgboost
-from preperation import load_data, extract_features
+from preparation import load_data, extract_features
 
 
 def main():

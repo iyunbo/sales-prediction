@@ -10,7 +10,7 @@ from sklearn.metrics.scorer import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import learning_curve
 
-from preperation import rmspe, rmspe_xg, rmspe_score
+from preparation import rmspe, rmspe_xg, rmspe_score
 
 seed = 16
 

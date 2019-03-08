@@ -1,4 +1,4 @@
-from preperation import load_data, extract_features
+from preparation import load_data, extract_features
 from models import run_models
 
 
