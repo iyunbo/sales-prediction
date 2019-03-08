@@ -30,10 +30,13 @@ python code for models training:
 
     - models.py: methods for models training and evaluation
     - preperation.py: data cleaning and data preparation code
-    - run_models.py: run basic models without tuning
-    - train_random_forest.py: tune randome forest model and evaluate the result
-    - train_xgboost.py: tune xgboost model and evaluate the result
-    - run_prediction.py: make prediciton with the persistent models (*.joblib) and evaluate the result
+    - 2-run_basics.py: run basic models without tuning for model comparison
+    - 3-tune_random_forest.py: tune randome forest model and determine the optimized parameters
+    - 3-tune_xgboost.py: tune xgboost model and determine the optimized parameters
+    - 4-train_random_forest.py: train random forest with the optimized (step 3) parameters
+    - 4-train_xgboost.py: train xgboost with the optimized (step 3) parameters
+    - 5-evaluate.py: make prediciton with the persistent models (*.joblib, *.model) and evaluate the result
+    - 6-final_model.py: select the best model and train with complete dataset: train data + validation data
     
 - some big data files are in the google drive as following link:
 
