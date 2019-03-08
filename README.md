@@ -38,5 +38,5 @@ contains python code for models training:
 - some big data files are in the google drive as following link:<br>
 [Big files in Google Drive](https://drive.google.com/open?id=1J0LKDANYdk-bSciZjzH_GZN31PLY1mKv)
 
-    - feat_matrix.pkl: persistence of feature matrix
-    - *.joblib: persistence of models
+    - **feat_matrix.pkl**: persistence of feature matrix
+    - ***.joblib**: persistence of models
