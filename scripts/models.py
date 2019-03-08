@@ -12,7 +12,7 @@ from sklearn.model_selection import learning_curve
 
 from preperation import rmspe, rmspe_xg, rmspe_score
 
-seed = 15
+seed = 16
 
 
 def run_linear_regression(train_x, train_y, test_x, test_y):
@@ -49,10 +49,21 @@ def run_models(df_train, features_x, feature_y):
     run_xgboost(train_x, train_y, test_x, test_y)
 
 
-def run_tuned_models(df_train, features_x, feature_y):
+def run_trained_models(df_train, features_x, feature_y):
+    # run trained random forest
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     model_file = "Random Forest-1549358024.6574237.joblib"
     load_and_evaluate(model_file, test_x, test_y)
+
+    # run trained xgboost
+    bst = xgb.Booster({'nthread': 8})
+    model_file = 'xgboost-01.model'
+    print('loading xgboost from', model_file)
+    bst.load_model('../data/' + model_file)
+    dtest = xgb.DMatrix(test_x, test_y)
+    predict = bst.predict(dtest)
+    score = rmspe_xg(predict, dtest)
+    print('XGBoost RMSPE = ', score)
 
 
 def load_and_evaluate(model_file, test_x, test_y):
@@ -66,7 +77,7 @@ def get_scorer():
     return make_scorer(rmspe_score, greater_is_better=False)
 
 
-def train_random_forest(df_train, features_x, feature_y, tuned_params=None):
+def tune_random_forest(df_train, features_x, feature_y, tuned_params=None):
     start_time = time.time()
     # split train test
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
@@ -89,18 +100,45 @@ def train_random_forest(df_train, features_x, feature_y, tuned_params=None):
         warm_start=[True]
     )
 
-    if tuned_params:
-        # training
-        best_model = random_forest.fit(train_x, train_y)
-    else:
-        # create random search
-        regressor = RandomizedSearchCV(random_forest, hyperparameters, random_state=seed, n_iter=50, cv=5,
-                                       scoring=get_scorer(),
-                                       verbose=3, n_jobs=6)
-        # training
-        best_model = regressor.fit(train_x, train_y)
-    if not tuned_params:
-        print('Best parameters:', best_model.best_estimator_.get_params())
+    # create random search
+    regressor = RandomizedSearchCV(random_forest, hyperparameters, random_state=seed, n_iter=50, cv=5,
+                                   scoring=get_scorer(),
+                                   verbose=3, n_jobs=6)
+    # training
+    best_model = regressor.fit(train_x, train_y)
+    # evaluation
+    predict = best_model.predict(test_x)
+    score = rmspe(predict, test_y)
+    print('Random Forest RMSPE = ', score)
+    print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+
+
+def train_random_forest(df_train, features_x, feature_y):
+    tuned_params = {'bootstrap': True,
+                    'criterion': 'mse',
+                    'max_depth': None,
+                    'max_features': 'auto',
+                    'max_leaf_nodes': None,
+                    'min_impurity_decrease': 0,
+                    'min_impurity_split': None,
+                    'min_samples_leaf': 10,
+                    'min_samples_split': 2,
+                    'min_weight_fraction_leaf': 0,
+                    'n_estimators': 100,
+                    'n_jobs': 6,
+                    'oob_score': True,
+                    'random_state': None,
+                    'verbose': 0,
+                    'warm_start': True
+                    }
+    start_time = time.time()
+    # split train test
+    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    random_forest = RandomForestRegressor(**tuned_params)
+
+    regressor = random_forest.fit(train_x, train_y)
+    # training
+    best_model = regressor.fit(train_x, train_y)
     evaluate_model(best_model, 'Random Forest', test_x, test_y, train_x, train_y)
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
@@ -113,19 +151,21 @@ def evaluate_model(best_model, title, test_x, test_y, train_x, train_y):
     if score < 0.15:
         dump(best_model, '../data/' + title + '-' + str(time.time()) + '.joblib')
 
-    plot_learning_curve(best_model, title + " Learning Curve", train_x, train_y,
-                        n_jobs=6)
+    # time consuming
+    # plot_learning_curve(best_model, title + " Learning Curve", train_x, train_y,
+    #                     n_jobs=6)
 
 
 def train_xgboost(df_train, features_x, feature_y):
+    start_time = time.time()
     # split train test
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     # prepare data structure for xgb
     dtrain = xgb.DMatrix(train_x, train_y)
     dtest = xgb.DMatrix(test_x, test_y)
     # setup parameters
-    num_round = 3000
-    evallist = [(dtrain, 'train'), (dtest, 'test')]
+    num_round = 1000
+    evallist = [(dtrain, 'train'), (dtest, 'validation')]
     # training
     params = {'bst:max_depth': 12,
               'bst:eta': 0.01,
@@ -140,8 +180,12 @@ def train_xgboost(df_train, features_x, feature_y):
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
                            early_stopping_rounds=500)
+    predict = best_model.predict(dtest, ntree_limit=best_model.best_ntree_limit)
+    score = rmspe_xg(predict, dtest)
+    print('XGBoost RMSPE = ', score)
     xgb.plot_importance(best_model)
-    evaluate_model(best_model, 'XGBoost', test_x, test_y, train_x, train_y)
+    best_model.save_model('../data/xgboost-01.model')
+    print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
 def tune_xgboost(df_train, features_x, feature_y):
@@ -149,7 +193,7 @@ def tune_xgboost(df_train, features_x, feature_y):
     # split train test
     train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
     param_grid = {
-        'tree_method': ['gpu_hist'],
+        # 'tree_method': ['gpu_hist'],
         'silent': [False],
         'max_depth': [12, 13, 14, 15, 20],
         'learning_rate': [0.001, 0.01, 0.1, 0.2, 0, 3],
@@ -159,7 +203,7 @@ def tune_xgboost(df_train, features_x, feature_y):
         'min_child_weight': [0.5, 1.0, 3.0, 5.0, 7.0, 10.0],
         'gamma': [0, 0.25, 0.5, 1.0],
         'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
-        'n_estimators': [50]}
+        'n_estimators': [50, 80, 100]}
 
     regressor = xgb.XGBRegressor(nthread=2)
 
