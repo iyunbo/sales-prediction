@@ -1,6 +1,6 @@
 # sales-prediction
 
-### A machine learning project for Udacity's Machine Learning Engineer NanoDegrees
+### A machine learning project for Udacity's Machine Learning Engineer Nano Degree
 
 #### Project description
 A kaggle competition for sales forecasting
