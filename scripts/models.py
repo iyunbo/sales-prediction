@@ -112,7 +112,7 @@ def train_random_forest(df_train, features_x, feature_y):
     start_time = time.time()
     tuned_params = {'bootstrap': True,
                     'criterion': 'mse',
-                    'max_depth': None,
+                    'max_depth': 200,
                     'max_features': 'auto',
                     'max_leaf_nodes': None,
                     'min_impurity_decrease': 0,
@@ -120,10 +120,10 @@ def train_random_forest(df_train, features_x, feature_y):
                     'min_samples_leaf': 10,
                     'min_samples_split': 2,
                     'min_weight_fraction_leaf': 0,
-                    'n_estimators': 100,
+                    'n_estimators': 150,
                     'n_jobs': 6,
                     'oob_score': True,
-                    'random_state': None,
+                    'random_state': seed,
                     'verbose': 0,
                     'warm_start': True
                     }
