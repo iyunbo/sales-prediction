@@ -161,18 +161,22 @@ def train_xgboost(df_train, features_x, feature_y):
     evallist = [(dtrain, 'train'), (dtest, 'validation')]
     # training
     params = {'bst:max_depth': 12,
-              'bst:eta': 0.01,
-              'subsample': 0.9,
-              'colsample_bytree': 0.7,
-              'objective': 'reg:linear',
-              'booster': 'gbtree',
+              'bst:eta': 0.1,
+              'gamma': 1.0,
+              'colsample_bytree': 1.0,
+              'colsample_bylevel': 0.6,
+              'min_child_weight': 5.0,
+              'n_estimator': 80,
+              'reg_lambda': 10.0,
+              'subsample': 1.0,
               'nthread': 6,
               'seed': seed,
+              'tree_method': 'gpu_hist',
               'silent': True}
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=500)
+                           early_stopping_rounds=200)
     predict = best_model.predict(dtest, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dtest)
     print('XGBoost RMSPE = ', score)

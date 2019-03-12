@@ -40,3 +40,7 @@ contains python code for models training:
 
     - **feat_matrix.pkl**: persistence of feature matrix
     - ***.joblib**: persistence of models
+    
+#### Current scores
+- Random Forest: 0.1475
+- XGBoost: 0.151
