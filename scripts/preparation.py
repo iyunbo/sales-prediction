@@ -27,7 +27,7 @@ def load_data(debug=False):
                           nrows=lines,
                           low_memory=False)
 
-    df_store = pd.read_csv('../data/store.csv', nrows=lines)
+    df_store = pd.read_csv('../data/store_comp.csv', nrows=lines)
 
     df_train['Type'] = 'train'
     df_test['Type'] = 'test'
@@ -138,6 +138,10 @@ def extract_features(df_raw, df_store_raw):
     process_outliers(feat_matrix)
     print('process_outliers: done')
 
+    # dummy code
+    feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
+    feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
+
     print("all features:", features_x)
     print("target:", feature_y)
     print("feature matrix dimension:", feat_matrix.shape)
@@ -167,7 +171,9 @@ def selected_features(sales_features, store_features):
 
 def process_missing(feat_matrix, features_x):
     for feature in features_x:
-        feat_matrix[feature] = feat_matrix[feature].fillna(-1)
+        missing = feat_matrix[feature].isna().sum()
+        if missing > 0:
+            print("missing value of", feature, missing)
 
 
 # noinspection PyBroadException
@@ -176,6 +182,7 @@ def competition_open_datetime(line):
         date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
         return (pd.to_datetime("2015-08-01") - pd.to_datetime(date)).days
     except:
+        print("error: ", line)
         return -1
 
 
@@ -184,6 +191,7 @@ def competition_dist(line):
     try:
         return np.log(int(line['CompetitionDistance']))
     except:
+        print("error: ", line)
         return 9999999
 
 
@@ -202,7 +210,8 @@ def extract_store_feat(df_store_raw):
     return df_store, store_features
 
 
-def extract_sales_feat(df_raw):
+def \
+        extract_sales_feat(df_raw):
     # Remove rows where store is open, but no sales.
     df = df_raw.loc[~((df_raw['Open'] == 1) & (df_raw['Sales'] == 0))].copy()
 
@@ -211,9 +220,6 @@ def extract_sales_feat(df_raw):
 
     # log scale
     df.loc[(df['Type'] == 'train'), 'SalesLog'] = np.log1p(df.loc[(df['Type'] == 'train')]['Sales'])
-    # dummy code
-    df['StateHoliday'] = df['StateHoliday'].astype('category').cat.codes
-    df['SchoolHoliday'] = df['SchoolHoliday'].astype('category').cat.codes
     # date features
     date_feat = pd.Index(df['Date'])
     df['Week'] = date_feat.week
