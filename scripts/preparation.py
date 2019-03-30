@@ -122,7 +122,7 @@ def extract_features(df_raw, df_store_raw):
 
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     print('extract_sales_feat: done')
-    df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
+    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     print('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
