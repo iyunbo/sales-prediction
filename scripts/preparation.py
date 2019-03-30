@@ -122,7 +122,8 @@ def extract_features(df_raw, df_store_raw):
 
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     print('extract_sales_feat: done')
-    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
+    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917) & (
+            df_sales['Type'] == 'train'), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     print('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
@@ -204,19 +205,23 @@ def extract_store_feat(df_store_raw):
     df_store['CompetitionOpenSince'] = df_store.apply(lambda row: competition_open_datetime(row), axis=1).astype(
         np.int64)
     df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
+    # weeks since promo2
+    df_store['Promo2SinceYear'].fillna(2015)
+    df_store['Promo2SinceWeek'].fillna(0)
+    df_store['Promo2Weeks'] = (2015 - df_store['Promo2SinceYear']) * 52 + df_store['Promo2SinceWeek']
     # exclude Promo2 related features due to irrelevance and high missing ratio
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince']
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2',
+                      'Promo2Weeks']
 
     return df_store, store_features
 
 
-def \
-        extract_sales_feat(df_raw):
+def extract_sales_feat(df_raw):
     # Remove rows where store is open, but no sales.
     df = df_raw.loc[~((df_raw['Open'] == 1) & (df_raw['Sales'] == 0))].copy()
 
     features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Type']
-    features_y = ['SalesLog', 'Sales']
+    features_y = ['SalesLog', 'Sales', 'Customers']
 
     # log scale
     df.loc[(df['Type'] == 'train'), 'SalesLog'] = np.log1p(df.loc[(df['Type'] == 'train')]['Sales'])
