@@ -45,30 +45,20 @@ def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
     df['Holiday'] = (df['SchoolHoliday'].isin([1])) | (df['StateHoliday'].isin(['a', 'b', 'c']))
 
-    sales_per_day, customers_per_day = calculate_avg(
-        df.loc[(df['DateInt'] <= 20150615)])
-    sales_per_day_last_3m, customers_per_day_last_3m = calculate_avg(
-        df.loc[(df['DateInt'] > 20150315) & (df['DateInt'] <= 20150615)])
-    sales_per_day_last_month, customers_per_day_last_month = calculate_avg(
-        df.loc[(df['DateInt'] > 20150515) & (df['DateInt'] <= 20150615)])
-    sales_per_day_last_week, customers_per_day_last_week = calculate_avg(
-        df.loc[(df['DateInt'] > 20150608) & (df['DateInt'] <= 20150615)])
-    sales_school_holiday_per_day, _ = calculate_avg(
-        df.loc[(df['SchoolHoliday'] == 1)])
-    sales_state_holiday_per_day, _ = calculate_avg(
-        df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
-    sales_promo_per_day, _ = calculate_avg(
-        df.loc[(df['Promo'] == 1)])
+    sales_per_day, customers_per_day = calculate_avg(df)
+    sales_per_day_last_2w, customers_per_day_last_2w = calculate_moving_avg(df, 14, '2Weeks')
+    sales_per_day_last_week, customers_per_day_last_week = calculate_moving_avg(df, 7, 'Week')
+    sales_school_holiday_per_day, _ = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
+    sales_state_holiday_per_day, _ = calculate_avg(df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
+    sales_promo_per_day, _ = calculate_avg(df.loc[(df['Promo'] == 1)])
     holidays = calculate_holidays(df)
 
     df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
-    df = pd.merge(df, sales_per_day_last_3m.reset_index(name='AvgSales3Months'), how='left', on=['Store'])
-    df = pd.merge(df, customers_per_day_last_3m.reset_index(name='AvgCustomers3Months'), how='left', on=['Store'])
-    df = pd.merge(df, sales_per_day_last_month.reset_index(name='AvgSalesMonth'), how='left', on=['Store'])
-    df = pd.merge(df, customers_per_day_last_month.reset_index(name='AvgCustomersMonth'), how='left', on=['Store'])
-    df = pd.merge(df, sales_per_day_last_week.reset_index(name='AvgSalesWeek'), how='left', on=['Store'])
-    df = pd.merge(df, customers_per_day_last_week.reset_index(name='AvgCustomersWeek'), how='left', on=['Store'])
+    df = pd.merge(df, sales_per_day_last_week, how='left', on=['Store', 'Date'])
+    df = pd.merge(df, customers_per_day_last_week, how='left', on=['Store', 'Date'])
+    df = pd.merge(df, sales_per_day_last_2w, how='left', on=['Store', 'Date'])
+    df = pd.merge(df, customers_per_day_last_2w, how='left', on=['Store', 'Date'])
     df = pd.merge(df, sales_school_holiday_per_day.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
     df = pd.merge(df, sales_state_holiday_per_day.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
     df = pd.merge(df, sales_promo_per_day.reset_index(name='AvgPromo'), how='left', on=['Store'])
@@ -76,12 +66,10 @@ def extract_recent_data(df_raw, features_x):
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
-    features_x.append("AvgSales3Months")
-    features_x.append("AvgCustomers3Months")
-    features_x.append("AvgSalesMonth")
-    features_x.append("AvgCustomersMonth")
-    features_x.append("AvgSalesWeek")
-    features_x.append("AvgCustomersWeek")
+    features_x.append("AvgWeekSales")
+    features_x.append("AvgWeekCustomers")
+    features_x.append("Avg2WeeksSales")
+    features_x.append("Avg2WeeksCustomers")
     features_x.append("AvgSchoolHoliday")
     features_x.append("AvgStateHoliday")
     features_x.append("AvgPromo")
@@ -95,6 +83,30 @@ def calculate_avg(df):
     store_sales = df.groupby(['Store'])['Sales'].median()
     store_customers = df.groupby(['Store'])['Customers'].median()
 
+    return store_sales, store_customers
+
+
+def calculate_moving_avg(df, day_window, label):
+    store_sales = pd.DataFrame(columns=['Store', 'Avg' + label + 'Sales', 'Date'])
+    store_customers = pd.DataFrame(columns=['Store', 'Avg' + label + 'Customers', 'Date'])
+    for store in df['Store'].unique():
+        df_store = df[df['Store'] == store].set_index('Date')
+        sales = df_store.rolling(day_window, min_periods=1)['Sales'].median()
+        sales = sales.fillna(sales.median())
+        customers = df_store.rolling(day_window, min_periods=1)['Customers'].median()
+        customers = customers.fillna(customers.median())
+        sales_df = pd.DataFrame()
+        sales_df['Avg' + label + 'Sales'] = sales
+        sales_df['Store'] = store
+        sales_df['Date'] = sales.index
+        store_sales = store_sales.append(sales_df, ignore_index=True, sort=False)
+        store_sales['Store'] = store_sales.Store.astype(int)
+        customers_df = pd.DataFrame()
+        customers_df['Avg' + label + 'Customers'] = customers
+        customers_df['Store'] = store
+        customers_df['Date'] = customers.index
+        store_customers = store_customers.append(customers_df, ignore_index=True, sort=False)
+        store_customers['Store'] = store_sales.Store.astype(int)
     return store_sales, store_customers
 
 
@@ -131,6 +143,7 @@ def extract_features(df_raw, df_store_raw):
     feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
                            on=['Store'])
     print('construct feature matrix: done')
+
     features_x = selected_features(sales_features, store_features)
     print('selected_features: done')
     check_missing(feat_matrix, features_x)

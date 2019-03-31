@@ -16,21 +16,21 @@ seed = 16
 
 
 def run_linear_regression(train_x, train_y, test_x, test_y):
-    regressor = LinearRegression()
+    regressor = LinearRegression(n_jobs=6)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(test_x)
     print('LinearRegression RMSPE =', rmspe(yhat=predict, y=test_y))
 
 
 def run_random_forest(train_x, train_y, test_x, test_y):
-    regressor = RandomForestRegressor()
+    regressor = RandomForestRegressor(n_jobs=6)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(test_x)
     print('RandomForestRegressor RMSPE = ', rmspe(predict, test_y))
 
 
 def run_xgboost(train_x, train_y, test_x, test_y):
-    regressor = xgb.XGBRegressor(nthread=8)
+    regressor = xgb.XGBRegressor(nthread=6)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(test_x)
     print('XGBoost RMSPE =', rmspe(predict, test_y))
@@ -132,7 +132,7 @@ def train_random_forest(df_train, features_x, feature_y):
     random_forest = RandomForestRegressor(**tuned_params)
     # training
     regressor = random_forest.fit(train_x, train_y)
-    evaluate_model(regressor, 'Random Forest', test_x, test_y, train_x, train_y)
+    evaluate_model(regressor, 'random-forest', test_x, test_y, train_x, train_y)
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
@@ -142,7 +142,7 @@ def evaluate_model(best_model, title, test_x, test_y, train_x, train_y):
     score = rmspe(predict, test_y)
     print('Improved ' + title + ' RMSPE = ', score)
     if score < 0.15:
-        dump(best_model, '../data/' + title + '-' + str(time.time()) + '.joblib')
+        dump(best_model, '../data/' + title + '.joblib')
 
     # time consuming
     # plot_learning_curve(best_model, title + " Learning Curve", train_x, train_y,
@@ -181,7 +181,7 @@ def train_xgboost(df_train, features_x, feature_y):
     score = rmspe_xg(predict, dtest)
     print('XGBoost RMSPE = ', score)
     xgb.plot_importance(best_model)
-    best_model.save_model('../data/xgboost-01.model')
+    best_model.save_model('../data/xgboost.model')
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
