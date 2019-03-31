@@ -122,8 +122,7 @@ def extract_features(df_raw, df_store_raw):
 
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     print('extract_sales_feat: done')
-    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917) & (
-            df_sales['Type'] == 'train'), 'Type'] = 'validation'
+    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     print('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
@@ -134,8 +133,8 @@ def extract_features(df_raw, df_store_raw):
     print('construct feature matrix: done')
     features_x = selected_features(sales_features, store_features)
     print('selected_features: done')
-    process_missing(feat_matrix, features_x)
-    print('process_missing: done')
+    check_missing(feat_matrix, features_x)
+    print('check_missing: done')
     process_outliers(feat_matrix)
     print('process_outliers: done')
 
@@ -170,30 +169,24 @@ def selected_features(sales_features, store_features):
     return features_x
 
 
-def process_missing(feat_matrix, features_x):
+def check_missing(feat_matrix, features_x):
     for feature in features_x:
         missing = feat_matrix[feature].isna().sum()
         if missing > 0:
             print("missing value of", feature, missing)
 
 
-# noinspection PyBroadException
 def competition_open_datetime(line):
-    try:
-        date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
-        return (pd.to_datetime("2015-08-01") - pd.to_datetime(date)).days
-    except:
-        print("error: ", line)
-        return -1
+    date = '{}-{}'.format(int(line['CompetitionOpenSinceYear']), int(line['CompetitionOpenSinceMonth']))
+    return (pd.to_datetime("2015-08-01") - pd.to_datetime(date)).days
 
 
-# noinspection PyBroadException
 def competition_dist(line):
-    try:
-        return np.log(int(line['CompetitionDistance']))
-    except:
-        print("error: ", line)
-        return 9999999
+    return np.log(int(line['CompetitionDistance']))
+
+
+def promo2_weeks(line):
+    return (2015 - line['Promo2SinceYear']) * 52 + line['Promo2SinceWeek']
 
 
 def extract_store_feat(df_store_raw):
@@ -206,13 +199,12 @@ def extract_store_feat(df_store_raw):
         np.int64)
     df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
     # weeks since promo2
-    df_store['Promo2SinceYear'].fillna(2015)
-    df_store['Promo2SinceWeek'].fillna(0)
-    df_store['Promo2Weeks'] = (2015 - df_store['Promo2SinceYear']) * 52 + df_store['Promo2SinceWeek']
-    # exclude Promo2 related features due to irrelevance and high missing ratio
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2',
-                      'Promo2Weeks']
-
+    df_store['Promo2SinceYear'] = df_store['Promo2SinceYear'].fillna(2015)
+    df_store['Promo2SinceWeek'] = df_store['Promo2SinceWeek'].fillna(0)
+    df_store['Promo2Weeks'] = df_store.apply(lambda row: promo2_weeks(row), axis=1).astype(np.int64)
+    # TODO how to use PromoInterval
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks',
+                      'Promo2']
     return df_store, store_features
 
 
