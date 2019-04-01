@@ -157,11 +157,11 @@ def train_xgboost(df_train, features_x, feature_y):
     dtrain = xgb.DMatrix(train_x, train_y)
     dtest = xgb.DMatrix(test_x, test_y)
     # setup parameters
-    num_round = 1000
+    num_round = 5000
     evallist = [(dtrain, 'train'), (dtest, 'validation')]
     # training
     params = {'bst:max_depth': 12,
-              'bst:eta': 0.1,
+              'bst:eta': 0.02,
               'gamma': 1.0,
               'colsample_bytree': 1.0,
               'colsample_bylevel': 0.6,
@@ -176,7 +176,7 @@ def train_xgboost(df_train, features_x, feature_y):
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=200)
+                           early_stopping_rounds=500)
     predict = best_model.predict(dtest, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dtest)
     print('XGBoost RMSPE = ', score)
@@ -185,6 +185,7 @@ def train_xgboost(df_train, features_x, feature_y):
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
+# --- 1.78 hours ---
 def tune_xgboost(df_train, features_x, feature_y):
     start_time = time.time()
     # split train test
