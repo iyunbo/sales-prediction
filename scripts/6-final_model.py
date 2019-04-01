@@ -1,11 +1,25 @@
 from preparation import load_data, extract_features
+from models import final_model
+import numpy as np
+
+
+# import xgboost as xgb
 
 
 def main():
     df, df_store = load_data(debug=False)
     feat_matrix, features_x, feature_y = extract_features(df, df_store)
-    # TODO
-    # train with the best model and with complete dataset (train + validation)
+    model = final_model(feat_matrix.loc[~(feat_matrix['Type'] == 'test')], features_x, feature_y)
+    df_test = feat_matrix.loc[feat_matrix['Type'] == 'test'].copy()
+    predict = model.predict(df_test[features_x])
+    # predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=4642)
+    df_test['Id'] = df_test.Id.astype(int)
+    df_test = df_test.set_index('Id')
+    df_test['Sales'] = np.expm1(predict)
+    df_test['Sales'] = df_test.Sales.astype(int)
+    result = df_test[['Sales']].copy()
+    print(result.head())
+    result.to_csv('../data/submission.csv')
 
 
 if __name__ == '__main__':

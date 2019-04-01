@@ -179,6 +179,7 @@ def selected_features(sales_features, store_features):
     features_x = list(set(sales_features + store_features))
     features_x.remove("Type")
     features_x.remove("Store")
+    features_x.remove("Id")
     return features_x
 
 
@@ -250,6 +251,7 @@ def extract_sales_feat(df_raw):
     features_x.append('DayOfMonth')
     features_x.append('DayOfYear')
     features_x.append('DateInt')
+    features_x.append('Id')
 
     return df, features_x, features_y
 

@@ -15,62 +15,117 @@ from preparation import rmspe, rmspe_xg, rmspe_score
 seed = 16
 
 
-def run_linear_regression(train_x, train_y, test_x, test_y):
+def run_linear_regression(train_x, train_y, validation_x, validation_y):
     regressor = LinearRegression(n_jobs=6)
     regressor.fit(train_x, train_y)
-    predict = regressor.predict(test_x)
-    print('LinearRegression RMSPE =', rmspe(yhat=predict, y=test_y))
+    predict = regressor.predict(validation_x)
+    print('LinearRegression RMSPE =', rmspe(yhat=predict, y=validation_y))
 
 
-def run_random_forest(train_x, train_y, test_x, test_y):
+def run_random_forest(train_x, train_y, validation_x, validation_y):
     regressor = RandomForestRegressor(n_jobs=6)
     regressor.fit(train_x, train_y)
-    predict = regressor.predict(test_x)
-    print('RandomForestRegressor RMSPE = ', rmspe(predict, test_y))
+    predict = regressor.predict(validation_x)
+    print('RandomForest RMSPE = ', rmspe(predict, validation_y))
 
 
-def run_xgboost(train_x, train_y, test_x, test_y):
+def run_xgboost(train_x, train_y, validation_x, validation_y):
     regressor = xgb.XGBRegressor(nthread=6)
     regressor.fit(train_x, train_y)
-    predict = regressor.predict(test_x)
-    print('XGBoost RMSPE =', rmspe(predict, test_y))
+    predict = regressor.predict(validation_x)
+    print('XGBoost RMSPE =', rmspe(predict, validation_y))
 
 
-def train_test(df, features_x, feature_y):
+def train_validation(df, features_x, feature_y):
     train = df.loc[(df['Type'] == 'train')]
-    test = df.loc[(df['Type'] == 'validation')]
-    return train[features_x], test[features_x], train[feature_y], test[feature_y]
+    validation = df.loc[(df['Type'] == 'validation')]
+    return train[features_x], validation[features_x], train[feature_y], validation[feature_y]
 
 
 def run_models(df_train, features_x, feature_y):
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
-    run_linear_regression(train_x, train_y, test_x, test_y)
-    run_random_forest(train_x, train_y, test_x, test_y)
-    run_xgboost(train_x, train_y, test_x, test_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
+    run_linear_regression(train_x, train_y, validation_x, validation_y)
+    run_random_forest(train_x, train_y, validation_x, validation_y)
+    run_xgboost(train_x, train_y, validation_x, validation_y)
 
 
 def run_trained_models(df_train, features_x, feature_y):
     # run trained random forest
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
-    model_file = "Random Forest-1549358024.6574237.joblib"
-    load_and_evaluate(model_file, test_x, test_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
+    model_file = "random-forest.joblib"
+    print("loading model from [", model_file, "]")
+    regressor = load("../data/" + model_file)
+    predict = regressor.predict(validation_x)
+    print("RandomForest RMSPE =", rmspe(predict, validation_y))
 
     # run trained xgboost
-    bst = xgb.Booster({'nthread': 8})
-    model_file = 'xgboost-01.model'
-    print('loading xgboost from', model_file)
-    bst.load_model('../data/' + model_file)
-    dtest = xgb.DMatrix(test_x, test_y)
-    predict = bst.predict(dtest)
-    score = rmspe_xg(predict, dtest)
-    print('XGBoost RMSPE = ', score)
+    bst = xgb.Booster({"nthread": 8})
+    model_file = "xgboost.model"
+    print("loading xgboost from [", model_file, "]")
+    bst.load_model("../data/" + model_file)
+    dvalidation = xgb.DMatrix(validation_x, validation_y)
+    predict = bst.predict(dvalidation, ntree_limit=4053)
+    score = rmspe_xg(predict, dvalidation)
+    print("XGBoost RMSPE =", score[1])
 
 
-def load_and_evaluate(model_file, test_x, test_y):
-    print('loading model from [', model_file, "]")
-    regressor = load("../data/" + model_file)
-    predict = regressor.predict(test_x)
-    print('RandomForestRegressor RMSPE = ', rmspe(predict, test_y))
+def final_model(df_train, features_x, feature_y):
+    start_time = time.time()
+    tuned_params = {'bootstrap': True,
+                    'criterion': 'mse',
+                    'max_depth': 200,
+                    'max_features': 'auto',
+                    'max_leaf_nodes': None,
+                    'min_impurity_decrease': 0,
+                    'min_impurity_split': None,
+                    'min_samples_leaf': 10,
+                    'min_samples_split': 2,
+                    'min_weight_fraction_leaf': 0,
+                    'n_estimators': 150,
+                    'n_jobs': 6,
+                    'oob_score': True,
+                    'random_state': seed,
+                    'verbose': 0,
+                    'warm_start': True
+                    }
+    random_forest = RandomForestRegressor(**tuned_params)
+    # training
+    final_regressor = random_forest.fit(df_train[features_x], df_train[feature_y])
+    print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+
+    # start_time = time.time()
+    # train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
+    # # prepare data structure for xgb
+    # dtrain = xgb.DMatrix(train_x, train_y)
+    # dvalidation = xgb.DMatrix(validation_x, validation_y)
+    # # setup parameters
+    # num_round = 8000
+    # evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
+    # # training
+    # params = {'bst:max_depth': 12,
+    #           'bst:eta': 0.01,
+    #           'gamma': 1.0,
+    #           'colsample_bytree': 1.0,
+    #           'colsample_bylevel': 0.6,
+    #           'min_child_weight': 5.0,
+    #           'n_estimator': 80,
+    #           'reg_lambda': 10.0,
+    #           'subsample': 1.0,
+    #           'nthread': 6,
+    #           'seed': seed,
+    #           'tree_method': 'gpu_hist',
+    #           'silent': True}
+    #
+    # print(params)
+    # final_regressor = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
+    #                             early_stopping_rounds=600)
+    # predict = final_regressor.predict(dvalidation, ntree_limit=final_regressor.best_ntree_limit)
+    # score = rmspe_xg(predict, dvalidation)
+    # print('best tree limit:', final_regressor.best_ntree_limit)
+    # print('XGBoost RMSPE = ', score)
+    # print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+
+    return final_regressor
 
 
 def get_scorer():
@@ -79,8 +134,7 @@ def get_scorer():
 
 def tune_random_forest(df_train, features_x, feature_y):
     start_time = time.time()
-    # split train test
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     # init model
     random_forest = RandomForestRegressor()
     # parameters space
@@ -127,19 +181,18 @@ def train_random_forest(df_train, features_x, feature_y):
                     'verbose': 0,
                     'warm_start': True
                     }
-    # split train test
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     random_forest = RandomForestRegressor(**tuned_params)
     # training
     regressor = random_forest.fit(train_x, train_y)
-    evaluate_model(regressor, 'random-forest', test_x, test_y, train_x, train_y)
+    evaluate_model(regressor, 'random-forest', validation_x, validation_y)
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
-def evaluate_model(best_model, title, test_x, test_y, train_x, train_y):
+def evaluate_model(best_model, title, validation_x, validation_y):
     # evaluation
-    predict = best_model.predict(test_x)
-    score = rmspe(predict, test_y)
+    predict = best_model.predict(validation_x)
+    score = rmspe(predict, validation_y)
     print('Improved ' + title + ' RMSPE = ', score)
     if score < 0.15:
         dump(best_model, '../data/' + title + '.joblib')
@@ -151,17 +204,16 @@ def evaluate_model(best_model, title, test_x, test_y, train_x, train_y):
 
 def train_xgboost(df_train, features_x, feature_y):
     start_time = time.time()
-    # split train test
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     # prepare data structure for xgb
     dtrain = xgb.DMatrix(train_x, train_y)
-    dtest = xgb.DMatrix(test_x, test_y)
+    dvalidation = xgb.DMatrix(validation_x, validation_y)
     # setup parameters
-    num_round = 5000
-    evallist = [(dtrain, 'train'), (dtest, 'validation')]
+    num_round = 8000
+    evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
     params = {'bst:max_depth': 12,
-              'bst:eta': 0.02,
+              'bst:eta': 0.01,
               'gamma': 1.0,
               'colsample_bytree': 1.0,
               'colsample_bylevel': 0.6,
@@ -176,9 +228,10 @@ def train_xgboost(df_train, features_x, feature_y):
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=500)
-    predict = best_model.predict(dtest, ntree_limit=best_model.best_ntree_limit)
-    score = rmspe_xg(predict, dtest)
+                           early_stopping_rounds=600)
+    predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
+    score = rmspe_xg(predict, dvalidation)
+    print('best tree limit:', best_model.best_ntree_limit)
     print('XGBoost RMSPE = ', score)
     xgb.plot_importance(best_model)
     best_model.save_model('../data/xgboost.model')
@@ -188,8 +241,7 @@ def train_xgboost(df_train, features_x, feature_y):
 # --- 1.78 hours ---
 def tune_xgboost(df_train, features_x, feature_y):
     start_time = time.time()
-    # split train test
-    train_x, test_x, train_y, test_y = train_test(df_train, features_x, feature_y)
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     param_grid = {
         'tree_method': ['gpu_hist'],
         'silent': [False],
@@ -214,7 +266,8 @@ def tune_xgboost(df_train, features_x, feature_y):
                                        scoring=get_scorer(),
                                        refit=False,
                                        random_state=seed)
-    random_search.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=30, eval_set=[(test_x, test_y)])
+    random_search.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=30,
+                      eval_set=[(validation_x, validation_y)])
 
     print_tuning_result(random_search)
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
@@ -290,22 +343,22 @@ def plot_learning_curve(estimator, title, x_train, y_train, ylim=None, cv=None,
         plt.ylim(*ylim)
     plt.xlabel("Training examples")
     plt.ylabel("Score")
-    train_sizes, train_scores, test_scores = learning_curve(
+    train_sizes, train_scores, validation_scores = learning_curve(
         estimator, x_train, y_train, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes)
     train_scores_mean = np.mean(train_scores, axis=1)
     train_scores_std = np.std(train_scores, axis=1)
-    test_scores_mean = np.mean(test_scores, axis=1)
-    test_scores_std = np.std(test_scores, axis=1)
+    val_scores_mean = np.mean(validation_scores, axis=1)
+    val_scores_std = np.std(validation_scores, axis=1)
     plt.grid()
 
     plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
                      train_scores_mean + train_scores_std, alpha=0.1,
                      color="r")
-    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
-                     test_scores_mean + test_scores_std, alpha=0.1, color="g")
+    plt.fill_between(train_sizes, val_scores_mean - val_scores_std,
+                     val_scores_mean + val_scores_std, alpha=0.1, color="g")
     plt.plot(train_sizes, train_scores_mean, 'o-', color="r",
              label="Training score")
-    plt.plot(train_sizes, test_scores_mean, 'o-', color="g",
+    plt.plot(train_sizes, val_scores_mean, 'o-', color="g",
              label="Cross-validation score")
 
     plt.legend(loc="best")
