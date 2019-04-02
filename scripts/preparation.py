@@ -45,31 +45,21 @@ def extract_recent_data(df_raw, features_x):
     df = df_raw.copy()
     df['Holiday'] = (df['SchoolHoliday'].isin([1])) | (df['StateHoliday'].isin(['a', 'b', 'c']))
 
-    sales_per_day, customers_per_day = calculate_avg(df)
-    sales_per_day_last_2w, customers_per_day_last_2w = calculate_moving_avg(df, 14, '2Weeks')
-    sales_per_day_last_week, customers_per_day_last_week = calculate_moving_avg(df, 7, 'Week')
-    sales_school_holiday_per_day, _ = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
-    sales_state_holiday_per_day, _ = calculate_avg(df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
-    sales_promo_per_day, _ = calculate_avg(df.loc[(df['Promo'] == 1)])
+    avg_sales, avg_customers = calculate_avg(df)
+    avg_sales_school_holiday, _ = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
+    avg_sales_state_holiday, _ = calculate_avg(df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
+    avg_sales_promo, _ = calculate_avg(df.loc[(df['Promo'] == 1)])
     holidays = calculate_holidays(df)
 
-    df = pd.merge(df, sales_per_day.reset_index(name='AvgSales'), how='left', on=['Store'])
-    df = pd.merge(df, customers_per_day.reset_index(name='AvgCustomers'), how='left', on=['Store'])
-    df = pd.merge(df, sales_per_day_last_week, how='left', on=['Store', 'Date'])
-    df = pd.merge(df, customers_per_day_last_week, how='left', on=['Store', 'Date'])
-    df = pd.merge(df, sales_per_day_last_2w, how='left', on=['Store', 'Date'])
-    df = pd.merge(df, customers_per_day_last_2w, how='left', on=['Store', 'Date'])
-    df = pd.merge(df, sales_school_holiday_per_day.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
-    df = pd.merge(df, sales_state_holiday_per_day.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
-    df = pd.merge(df, sales_promo_per_day.reset_index(name='AvgPromo'), how='left', on=['Store'])
+    df = pd.merge(df, avg_sales.reset_index(name='AvgSales'), how='left', on=['Store'])
+    df = pd.merge(df, avg_customers.reset_index(name='AvgCustomers'), how='left', on=['Store'])
+    df = pd.merge(df, avg_sales_school_holiday.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, avg_sales_state_holiday.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, avg_sales_promo.reset_index(name='AvgPromo'), how='left', on=['Store'])
     df = pd.merge(df, holidays, how='left', on=['Store', 'Date'])
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
-    features_x.append("AvgWeekSales")
-    features_x.append("AvgWeekCustomers")
-    features_x.append("Avg2WeeksSales")
-    features_x.append("Avg2WeeksCustomers")
     features_x.append("AvgSchoolHoliday")
     features_x.append("AvgStateHoliday")
     features_x.append("AvgPromo")
@@ -134,7 +124,7 @@ def extract_features(df_raw, df_store_raw):
 
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     print('extract_sales_feat: done')
-    df_sales.loc[(df_sales['DateInt'] >= 20140801) & (df_sales['DateInt'] <= 20140917), 'Type'] = 'validation'
+    df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     print('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
@@ -217,8 +207,7 @@ def extract_store_feat(df_store_raw):
     df_store['Promo2SinceWeek'] = df_store['Promo2SinceWeek'].fillna(0)
     df_store['Promo2Weeks'] = df_store.apply(lambda row: promo2_weeks(row), axis=1).astype(np.int64)
     # TODO how to use PromoInterval
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks',
-                      'Promo2']
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks']
     return df_store, store_features
 
 
