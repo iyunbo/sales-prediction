@@ -23,14 +23,15 @@ def run_linear_regression(train_x, train_y, validation_x, validation_y):
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=6)
+    regressor = RandomForestRegressor(n_jobs=8, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
-    print('RandomForest RMSPE = ', rmspe(predict, validation_y))
+    score = rmspe(predict, validation_y)
+    return score
 
 
 def run_xgboost(train_x, train_y, validation_x, validation_y):
-    regressor = xgb.XGBRegressor(nthread=6)
+    regressor = xgb.XGBRegressor(nthread=6, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     print('XGBoost RMSPE =', rmspe(predict, validation_y))
@@ -47,6 +48,13 @@ def run_models(df_train, features_x, feature_y):
     run_linear_regression(train_x, train_y, validation_x, validation_y)
     run_random_forest(train_x, train_y, validation_x, validation_y)
     run_xgboost(train_x, train_y, validation_x, validation_y)
+
+
+def quick_score(df_train, features_x, feature_y):
+    start_time = time.time()
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
+    score = run_random_forest(train_x, train_y, validation_x, validation_y)
+    return score, (time.time() - start_time)
 
 
 def run_trained_models(df_train, features_x, feature_y):

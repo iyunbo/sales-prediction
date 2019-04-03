@@ -46,23 +46,32 @@ def extract_recent_data(df_raw, features_x):
     df['Holiday'] = (df['SchoolHoliday'].isin([1])) | (df['StateHoliday'].isin(['a', 'b', 'c']))
 
     avg_sales, avg_customers = calculate_avg(df)
-    avg_sales_school_holiday, _ = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
-    avg_sales_state_holiday, _ = calculate_avg(df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
-    avg_sales_promo, _ = calculate_avg(df.loc[(df['Promo'] == 1)])
+    avg_sales_school_holiday, avg_customers_school_holiday = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
+    avg_sales_state_holiday, avg_customers_state_holiday = calculate_avg(
+        df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
+    avg_sales_promo, avg_customers_promo = calculate_avg(df.loc[(df['Promo'] == 1)])
     holidays = calculate_holidays(df)
 
     df = pd.merge(df, avg_sales.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers.reset_index(name='AvgCustomers'), how='left', on=['Store'])
     df = pd.merge(df, avg_sales_school_holiday.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, avg_customers_school_holiday.reset_index(name='AvgCustomersSchoolHoliday'), how='left',
+                  on=['Store'])
     df = pd.merge(df, avg_sales_state_holiday.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
+    df = pd.merge(df, avg_customers_state_holiday.reset_index(name='AvgCustomersStateHoliday'), how='left',
+                  on=['Store'])
     df = pd.merge(df, avg_sales_promo.reset_index(name='AvgPromo'), how='left', on=['Store'])
+    df = pd.merge(df, avg_customers_promo.reset_index(name='AvgCustomersPromo'), how='left', on=['Store'])
     df = pd.merge(df, holidays, how='left', on=['Store', 'Date'])
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
     features_x.append("AvgSchoolHoliday")
+    features_x.append("AvgCustomersSchoolHoliday")
     features_x.append("AvgStateHoliday")
+    features_x.append("AvgCustomersStateHoliday")
     features_x.append("AvgPromo")
+    features_x.append("AvgCustomersPromo")
     features_x.append("HolidayLastWeek")
     features_x.append("HolidayNextWeek")
 
