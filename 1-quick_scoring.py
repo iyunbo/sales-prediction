@@ -1,6 +1,8 @@
-from preparation import load_data, extract_features
-from models import quick_score
-import datetime, time
+import datetime
+import time
+
+from trainer.model import quick_score
+from trainer.preparation import load_data, extract_features
 
 
 def main():
@@ -8,7 +10,6 @@ def main():
     feat_matrix, features_x, feature_y = extract_features(df, df_store)
     features_x.remove('AvgCustomersPromo')
     features_x.remove('HolidayLastWeek')
-    features_x.remove('HolidayNextWeek')
     score, duration = quick_score(feat_matrix.loc[~(feat_matrix['Type'] == 'test')], features_x, feature_y)
     ts = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
     print(ts)

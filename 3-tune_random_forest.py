@@ -1,5 +1,5 @@
-from preparation import load_data, extract_features
-from models import tune_random_forest
+from trainer.preparation import load_data, extract_features
+from trainer.model import tune_random_forest
 
 
 def main():

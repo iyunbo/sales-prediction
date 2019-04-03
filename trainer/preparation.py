@@ -1,11 +1,15 @@
-import pandas as pd
-import numpy as np
-from pathlib import Path
+import os
 import pickle
+import subprocess
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 seed = 42
-feat_matrix_pkl = '../data/feat_matrix.pkl'
-feat_file = '../data/features_x.txt'
+feat_matrix_pkl = 'data/feat_matrix.pkl'
+feat_file = 'data/features_x.txt'
 
 
 def load_data(debug=False):
@@ -15,19 +19,62 @@ def load_data(debug=False):
         return None, None
 
     lines = 100 if debug else None
-    df_train = pd.read_csv('../data/train.csv',
+    df_train = pd.read_csv('data/train.csv',
                            parse_dates=['Date'],
                            date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                            nrows=lines,
                            low_memory=False)
 
-    df_test = pd.read_csv('../data/test.csv',
+    df_test = pd.read_csv('data/test.csv',
                           parse_dates=['Date'],
                           date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                           nrows=lines,
                           low_memory=False)
 
-    df_store = pd.read_csv('../data/store_comp.csv', nrows=lines)
+    df_store = pd.read_csv('data/store_comp.csv', nrows=lines)
+
+    df_train['Type'] = 'train'
+    df_test['Type'] = 'test'
+
+    # Combine train and test set
+    frames = [df_train, df_test]
+    df = pd.concat(frames, sort=True)
+
+    print("data loaded:", df.shape)
+    print("store loaded:", df_store.shape)
+    return df, df_store
+
+
+def load_data_google():
+    # [START download-data]
+    train_filename = 'train.csv'
+    test_filename = 'test.csv'
+    store_filename = 'store_comp.csv'
+    data_dir = 'gs://sales-prediction-iyunbo-mlengine/data'
+
+    # gsutil outputs everything to stderr so we need to divert it to stdout.
+    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
+                                                        train_filename),
+                           train_filename], stderr=sys.stdout)
+    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
+                                                        test_filename),
+                           test_filename], stderr=sys.stdout)
+    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
+                                                        store_filename),
+                           store_filename], stderr=sys.stdout)
+    # [END download-data]
+
+    df_train = pd.read_csv(train_filename,
+                           parse_dates=['Date'],
+                           date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
+                           low_memory=False)
+
+    df_test = pd.read_csv(test_filename,
+                          parse_dates=['Date'],
+                          date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
+                          low_memory=False)
+
+    df_store = pd.read_csv(store_filename)
 
     df_train['Type'] = 'train'
     df_test['Type'] = 'test'

@@ -1,5 +1,5 @@
-from preparation import load_data, extract_features
-from models import final_model
+from trainer.preparation import load_data, extract_features
+from trainer.model import final_model
 import numpy as np
 
 

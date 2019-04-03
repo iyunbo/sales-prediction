@@ -1,5 +1,5 @@
-from models import tune_xgboost
-from preparation import load_data, extract_features
+from trainer.model import tune_xgboost
+from trainer.preparation import load_data, extract_features
 
 
 def main():

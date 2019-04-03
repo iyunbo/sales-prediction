@@ -1,5 +1,5 @@
-from preparation import load_data, extract_features
-from models import run_trained_models
+from trainer.preparation import load_data, extract_features
+from trainer.model import run_trained_models
 
 
 def main():
