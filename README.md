@@ -44,3 +44,9 @@ contains python code for models training:
 #### Current scores
 - Random Forest: 0.1475
 - XGBoost: 0.151
+
+#### Google Cloud
+```
+GOOGLE_APPLICATION_CREDENTIALS=C:\Users\yunbo\sales-prediction-190404234621.json
+GOOGLE_CLOUD_PROJECT=sales-prediction-iyunbo
+```

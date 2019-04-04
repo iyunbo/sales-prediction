@@ -23,7 +23,7 @@ def run_linear_regression(train_x, train_y, validation_x, validation_y):
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=8, random_state=seed)
+    regressor = RandomForestRegressor(n_jobs=32, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     score = rmspe(predict, validation_y)

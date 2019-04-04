@@ -51,30 +51,32 @@ def load_data_google():
     test_filename = 'test.csv'
     store_filename = 'store_comp.csv'
     data_dir = 'gs://sales-prediction-iyunbo-mlengine/data'
+    local_data_dir = 'data'
 
     # gsutil outputs everything to stderr so we need to divert it to stdout.
-    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
-                                                        train_filename),
-                           train_filename], stderr=sys.stdout)
-    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
-                                                        test_filename),
-                           test_filename], stderr=sys.stdout)
-    subprocess.check_call(['gsutil', 'cp', os.path.join(data_dir,
-                                                        store_filename),
-                           store_filename], stderr=sys.stdout)
+    subprocess.check_call(['mkdir', local_data_dir], stderr=sys.stdout)
+    subprocess.check_call(
+        ['gsutil', 'cp', os.path.join(data_dir, train_filename), os.path.join(local_data_dir, train_filename)],
+        stderr=sys.stdout)
+    subprocess.check_call(
+        ['gsutil', 'cp', os.path.join(data_dir, test_filename), os.path.join(local_data_dir, test_filename)],
+        stderr=sys.stdout)
+    subprocess.check_call(
+        ['gsutil', 'cp', os.path.join(data_dir, store_filename), os.path.join(local_data_dir, store_filename)],
+        stderr=sys.stdout)
     # [END download-data]
 
-    df_train = pd.read_csv(train_filename,
+    df_train = pd.read_csv(os.path.join(local_data_dir, train_filename),
                            parse_dates=['Date'],
                            date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                            low_memory=False)
 
-    df_test = pd.read_csv(test_filename,
+    df_test = pd.read_csv(os.path.join(local_data_dir, test_filename),
                           parse_dates=['Date'],
                           date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                           low_memory=False)
 
-    df_store = pd.read_csv(store_filename)
+    df_store = pd.read_csv(os.path.join(local_data_dir, store_filename))
 
     df_train['Type'] = 'train'
     df_test['Type'] = 'test'
