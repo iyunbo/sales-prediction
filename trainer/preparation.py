@@ -54,7 +54,7 @@ def load_data_google():
     local_data_dir = 'data'
 
     # gsutil outputs everything to stderr so we need to divert it to stdout.
-    subprocess.check_call(['mkdir', local_data_dir], stderr=sys.stdout)
+    subprocess.check_call(['mkdir', '-p', local_data_dir], stderr=sys.stdout)
     subprocess.check_call(
         ['gsutil', 'cp', os.path.join(data_dir, train_filename), os.path.join(local_data_dir, train_filename)],
         stderr=sys.stdout)

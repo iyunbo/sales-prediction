@@ -231,7 +231,7 @@ def train_xgboost(df_train, features_x, feature_y):
               'subsample': 1.0,
               'nthread': 6,
               'seed': seed,
-              'tree_method': 'gpu_hist',
+              # 'tree_method': 'gpu_hist',
               'silent': True}
 
     print(params)
@@ -251,7 +251,7 @@ def tune_xgboost(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     param_grid = {
-        'tree_method': ['gpu_hist'],
+        # 'tree_method': ['gpu_hist'],
         'silent': [False],
         'max_depth': [12, 13, 14, 15, 20],
         'learning_rate': [0.001, 0.01, 0.1, 0.2, 0, 3],
@@ -268,7 +268,7 @@ def tune_xgboost(df_train, features_x, feature_y):
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
                                        n_iter=20,
-                                       n_jobs=4,
+                                       n_jobs=32,
                                        verbose=1,
                                        cv=5,
                                        scoring=get_scorer(),
