@@ -15,11 +15,11 @@ bucket_name = 'sales-prediction-iyunbo-mlengine'
 package_file = 'trainer-0.1.tar.gz'
 package = path.join('dist', package_file)
 job_dir = 'training_job_dir'
-job_object = '/' + job_dir + '/packages/' + package_file
+job_object = job_dir + '/packages/' + package_file
 region = 'europe-west1'
 job_id = 'xgboost_14'
 
-log.info("building new package:", package)
+log.info("building new package: {}".format(package))
 subprocess.check_call(
     ['python', 'setup.py', 'sdist'],
     stderr=sys.stdout)
@@ -32,7 +32,7 @@ cloudml = discovery.build('ml', 'v1')
 training_inputs = {'scaleTier': 'CUSTOM',
                    'masterType': 'n1-highcpu-64',
                    'packageUris': [
-                       'gs://' + bucket_name + job_object],
+                       'gs://' + bucket_name + '/' + job_object],
                    'pythonModule': 'trainer.task',
                    'region': region,
                    'jobDir': 'gs://' + bucket_name + '/' + job_dir,
