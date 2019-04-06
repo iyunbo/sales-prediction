@@ -1,15 +1,22 @@
 import os
+import os.path as path
 import pickle
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 seed = 42
-feat_matrix_pkl = 'data/feat_matrix.pkl'
-feat_file = 'data/features_x.txt'
+local_data_dir = 'data'
+cloud_data_dir = 'gs://sales-prediction-iyunbo-mlengine/data'
+train_filename = 'train.csv'
+test_filename = 'test.csv'
+store_filename = 'store_comp.csv'
+feat_matrix_pkl = 'feat_matrix.pkl'
+feat_file = 'features_x.txt'
 
 
 def load_data(debug=False):
@@ -19,19 +26,19 @@ def load_data(debug=False):
         return None, None
 
     lines = 100 if debug else None
-    df_train = pd.read_csv('data/train.csv',
+    df_train = pd.read_csv(path.join(local_data_dir, train_filename),
                            parse_dates=['Date'],
                            date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                            nrows=lines,
                            low_memory=False)
 
-    df_test = pd.read_csv('data/test.csv',
+    df_test = pd.read_csv(path.join(local_data_dir, test_filename),
                           parse_dates=['Date'],
                           date_parser=(lambda dt: pd.to_datetime(dt, format='%Y-%m-%d')),
                           nrows=lines,
                           low_memory=False)
 
-    df_store = pd.read_csv('data/store_comp.csv', nrows=lines)
+    df_store = pd.read_csv(path.join(local_data_dir, store_filename), nrows=lines)
 
     df_train['Type'] = 'train'
     df_test['Type'] = 'test'
@@ -47,22 +54,23 @@ def load_data(debug=False):
 
 def load_data_google():
     # [START download-data]
-    train_filename = 'train.csv'
-    test_filename = 'test.csv'
-    store_filename = 'store_comp.csv'
-    data_dir = 'gs://sales-prediction-iyunbo-mlengine/data'
-    local_data_dir = 'data'
 
     # gsutil outputs everything to stderr so we need to divert it to stdout.
     subprocess.check_call(['mkdir', '-p', local_data_dir], stderr=sys.stdout)
     subprocess.check_call(
-        ['gsutil', 'cp', os.path.join(data_dir, train_filename), os.path.join(local_data_dir, train_filename)],
+        ['gsutil', 'cp', path.join(cloud_data_dir, train_filename), os.path.join(local_data_dir, train_filename)],
         stderr=sys.stdout)
     subprocess.check_call(
-        ['gsutil', 'cp', os.path.join(data_dir, test_filename), os.path.join(local_data_dir, test_filename)],
+        ['gsutil', 'cp', path.join(cloud_data_dir, test_filename), os.path.join(local_data_dir, test_filename)],
         stderr=sys.stdout)
     subprocess.check_call(
-        ['gsutil', 'cp', os.path.join(data_dir, store_filename), os.path.join(local_data_dir, store_filename)],
+        ['gsutil', 'cp', path.join(cloud_data_dir, store_filename), os.path.join(local_data_dir, store_filename)],
+        stderr=sys.stdout)
+    subprocess.check_call(
+        ['gsutil', 'cp', path.join(cloud_data_dir, feat_matrix_pkl), path.join(cloud_data_dir, feat_matrix_pkl)],
+        stderr=sys.stdout)
+    subprocess.check_call(
+        ['gsutil', 'cp', path.join(cloud_data_dir, feat_file), path.join(local_data_dir, feat_file)],
         stderr=sys.stdout)
     # [END download-data]
 
@@ -95,6 +103,13 @@ def extract_recent_data(df_raw, features_x):
     df['Holiday'] = (df['SchoolHoliday'].isin([1])) | (df['StateHoliday'].isin(['a', 'b', 'c']))
 
     avg_sales, avg_customers = calculate_avg(df)
+    sales_last_year, customers_last_year = calculate_avg(
+        df.loc[(df['DateInt'] > 20140731) & (df['DateInt'] <= 20150615)])
+    sales_last_3months, customers_last_3months = calculate_avg(
+        df.loc[(df['DateInt'] > 20150315) & (df['DateInt'] <= 20150615)])
+    sales_last_week, customers_last_week = calculate_avg(
+        df.loc[(df['DateInt'] > 20150608) & (df['DateInt'] <= 20150615)])
+    sales_last_day, customers_last_day = calculate_avg(df.loc[df['DateInt'] == 20150614])
     avg_sales_school_holiday, avg_customers_school_holiday = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
     avg_sales_state_holiday, avg_customers_state_holiday = calculate_avg(
         df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
@@ -103,18 +118,42 @@ def extract_recent_data(df_raw, features_x):
 
     df = pd.merge(df, avg_sales.reset_index(name='AvgSales'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers.reset_index(name='AvgCustomers'), how='left', on=['Store'])
+
+    df = pd.merge(df, sales_last_year.reset_index(name='AvgYearSales'), how='left', on=['Store'])
+    df = pd.merge(df, customers_last_year.reset_index(name='AvgYearCustomers'), how='left', on=['Store'])
+
+    df = pd.merge(df, sales_last_3months.reset_index(name='Avg3MonthsSales'), how='left', on=['Store'])
+    df = pd.merge(df, customers_last_3months.reset_index(name='Avg3MonthsCustomers'), how='left', on=['Store'])
+
+    df = pd.merge(df, sales_last_week.reset_index(name='AvgWeekSales'), how='left', on=['Store'])
+    df = pd.merge(df, customers_last_week.reset_index(name='AvgWeekCustomers'), how='left', on=['Store'])
+
+    df = pd.merge(df, sales_last_day.reset_index(name='LastDaySales'), how='left', on=['Store'])
+    df = pd.merge(df, customers_last_day.reset_index(name='LastDayCustomers'), how='left', on=['Store'])
+
     df = pd.merge(df, avg_sales_school_holiday.reset_index(name='AvgSchoolHoliday'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers_school_holiday.reset_index(name='AvgCustomersSchoolHoliday'), how='left',
                   on=['Store'])
+
     df = pd.merge(df, avg_sales_state_holiday.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers_state_holiday.reset_index(name='AvgCustomersStateHoliday'), how='left',
                   on=['Store'])
+
     df = pd.merge(df, avg_sales_promo.reset_index(name='AvgPromo'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers_promo.reset_index(name='AvgCustomersPromo'), how='left', on=['Store'])
+
     df = pd.merge(df, holidays, how='left', on=['Store', 'Date'])
 
     features_x.append("AvgSales")
     features_x.append("AvgCustomers")
+    features_x.append("AvgYearSales")
+    features_x.append("AvgYearCustomers")
+    features_x.append("Avg3MonthsSales")
+    features_x.append("Avg3MonthsCustomers")
+    features_x.append("AvgWeekSales")
+    features_x.append("AvgWeekCustomers")
+    features_x.append("LastDaySales")
+    features_x.append("LastDayCustomers")
     features_x.append("AvgSchoolHoliday")
     features_x.append("AvgCustomersSchoolHoliday")
     features_x.append("AvgStateHoliday")
@@ -170,16 +209,17 @@ def calculate_holidays(df):
 
 
 def already_extracted():
-    file = Path(feat_matrix_pkl)
+    file = Path(path.join(local_data_dir, feat_matrix_pkl))
     return file.is_file()
 
 
 def extract_features(df_raw, df_store_raw):
     feature_y = 'SalesLog'
     if already_extracted():
-        df = pd.read_pickle(feat_matrix_pkl)
+        df = pd.read_pickle(path.join(local_data_dir, feat_matrix_pkl))
         return df, read_features(), feature_y
 
+    start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
     print('extract_sales_feat: done')
     df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
@@ -207,19 +247,20 @@ def extract_features(df_raw, df_store_raw):
     print("target:", feature_y)
     print("feature matrix dimension:", feat_matrix.shape)
 
-    feat_matrix.to_pickle(feat_matrix_pkl)
+    feat_matrix.to_pickle(path.join(local_data_dir, feat_matrix_pkl))
     features_to_file(features_x)
+    print("--- %.2f minutes ---" % ((time.time() - start_time) / 60))
 
     return feat_matrix, features_x, feature_y
 
 
 def features_to_file(features_x):
-    with open(feat_file, 'wb') as f:
+    with open(path.join(local_data_dir, feat_file), 'wb') as f:
         pickle.dump(features_x, f)
 
 
 def read_features():
-    with open(feat_file, 'rb') as f:
+    with open(path.join(local_data_dir, feat_file), 'rb') as f:
         return pickle.load(f)
 
 
@@ -248,6 +289,8 @@ def competition_dist(line):
 
 
 def promo2_weeks(line):
+    if np.isnan(line['Promo2SinceYear']):
+        return - 1
     return (2015 - line['Promo2SinceYear']) * 52 + line['Promo2SinceWeek']
 
 
@@ -261,8 +304,6 @@ def extract_store_feat(df_store_raw):
         np.int64)
     df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
     # weeks since promo2
-    df_store['Promo2SinceYear'] = df_store['Promo2SinceYear'].fillna(2015)
-    df_store['Promo2SinceWeek'] = df_store['Promo2SinceWeek'].fillna(0)
     df_store['Promo2Weeks'] = df_store.apply(lambda row: promo2_weeks(row), axis=1).astype(np.int64)
     # TODO how to use PromoInterval
     store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks']
@@ -355,7 +396,9 @@ def process_outliers(df):
     for store in df['Store'].unique():
         df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
             mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'], 3)
-    # fill outliers with average sale
-    outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier'])]
-    df.loc[(df['Type'] == 'train') & (df['Outlier']), 'SalesLog'] = np.log1p(outlier_df['AvgSales'])
-    df.loc[(df['Type'] == 'train') & (df['Outlier']), 'Sales'] = outlier_df['AvgSales']
+        # fill outliers with average sale
+        outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
+        df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'SalesLog'] = np.log1p(
+            outlier_df['AvgYearSales'].median())
+        df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'Sales'] = outlier_df[
+            'AvgYearSales'].median()

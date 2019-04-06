@@ -23,7 +23,7 @@ def run_linear_regression(train_x, train_y, validation_x, validation_y):
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=32, random_state=seed)
+    regressor = RandomForestRegressor(n_jobs=8, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     score = rmspe(predict, validation_y)
@@ -263,11 +263,11 @@ def tune_xgboost(df_train, features_x, feature_y):
         'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
         'n_estimators': [50, 80, 100]}
 
-    regressor = xgb.XGBRegressor(nthread=2)
+    regressor = xgb.XGBRegressor(nthread=32)
 
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
-                                       n_iter=20,
+                                       n_iter=200,
                                        n_jobs=32,
                                        verbose=1,
                                        cv=5,
