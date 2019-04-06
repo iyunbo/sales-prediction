@@ -1,3 +1,4 @@
+import logging as log
 import os
 import os.path as path
 import pickle
@@ -9,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+log.basicConfig(level=log.INFO, format='%(asctime)s - [%(name)s] - [%(levelname)s]: %(message)s', stream=sys.stdout)
 seed = 42
 local_data_dir = 'data'
 cloud_data_dir = 'gs://sales-prediction-iyunbo-mlengine/data'
@@ -67,7 +69,7 @@ def load_data_google():
         ['gsutil', 'cp', path.join(cloud_data_dir, store_filename), os.path.join(local_data_dir, store_filename)],
         stderr=sys.stdout)
     subprocess.check_call(
-        ['gsutil', 'cp', path.join(cloud_data_dir, feat_matrix_pkl), path.join(cloud_data_dir, feat_matrix_pkl)],
+        ['gsutil', 'cp', path.join(cloud_data_dir, feat_matrix_pkl), path.join(local_data_dir, feat_matrix_pkl)],
         stderr=sys.stdout)
     subprocess.check_call(
         ['gsutil', 'cp', path.join(cloud_data_dir, feat_file), path.join(local_data_dir, feat_file)],

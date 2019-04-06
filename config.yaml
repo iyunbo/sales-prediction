@@ -1,3 +1,3 @@
 trainingInput:
   scaleTier: CUSTOM
-  masterType: complex_model_l
+  masterType: n1-highcpu-64

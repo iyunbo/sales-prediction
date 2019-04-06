@@ -16,14 +16,14 @@ seed = 16
 
 
 def run_linear_regression(train_x, train_y, validation_x, validation_y):
-    regressor = LinearRegression(n_jobs=6)
+    regressor = LinearRegression(n_jobs=-1)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     print('LinearRegression RMSPE =', rmspe(yhat=predict, y=validation_y))
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=8, random_state=seed)
+    regressor = RandomForestRegressor(n_jobs=1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     score = rmspe(predict, validation_y)
@@ -31,7 +31,7 @@ def run_random_forest(train_x, train_y, validation_x, validation_y):
 
 
 def run_xgboost(train_x, train_y, validation_x, validation_y):
-    regressor = xgb.XGBRegressor(nthread=6, random_state=seed)
+    regressor = xgb.XGBRegressor(nthread=-1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     print('XGBoost RMSPE =', rmspe(predict, validation_y))
@@ -254,27 +254,27 @@ def tune_xgboost(df_train, features_x, feature_y):
         # 'tree_method': ['gpu_hist'],
         'silent': [False],
         'max_depth': [12, 13, 14, 15, 20],
-        'learning_rate': [0.001, 0.01, 0.1, 0.2, 0, 3],
+        'learning_rate': [0.001, 0.01, 0.1, 0.2, 1, 3],
         'subsample': [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         'colsample_bytree': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         'colsample_bylevel': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         'min_child_weight': [0.5, 1.0, 3.0, 5.0, 7.0, 10.0],
         'gamma': [0, 0.25, 0.5, 1.0],
         'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
-        'n_estimators': [50, 80, 100]}
+        'n_estimators': [50, 80, 100, 120, 160]}
 
-    regressor = xgb.XGBRegressor(nthread=32)
+    regressor = xgb.XGBRegressor(nthread=-1)
 
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
                                        n_iter=200,
-                                       n_jobs=32,
+                                       n_jobs=40,
                                        verbose=1,
                                        cv=5,
                                        scoring=get_scorer(),
                                        refit=False,
                                        random_state=seed)
-    random_search.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=30,
+    random_search.fit(train_x, train_y, eval_metric=rmspe_xg, early_stopping_rounds=50,
                       eval_set=[(validation_x, validation_y)])
 
     print_tuning_result(random_search)
