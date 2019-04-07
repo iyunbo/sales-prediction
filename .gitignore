@@ -108,3 +108,4 @@ nohup.out
 *.joblib
 *.pkl
 *.model
+features_x.txt
