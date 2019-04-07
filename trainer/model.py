@@ -1,3 +1,4 @@
+import os.path as path
 import time
 
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from sklearn.metrics.scorer import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import learning_curve
 
+from .preparation import local_data_dir
 from .preparation import rmspe, rmspe_xg, rmspe_score
 
 seed = 16
@@ -23,7 +25,7 @@ def run_linear_regression(train_x, train_y, validation_x, validation_y):
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=1, random_state=seed)
+    regressor = RandomForestRegressor(n_jobs=-1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     score = rmspe(predict, validation_y)
@@ -34,7 +36,8 @@ def run_xgboost(train_x, train_y, validation_x, validation_y):
     regressor = xgb.XGBRegressor(nthread=-1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
-    print('XGBoost RMSPE =', rmspe(predict, validation_y))
+    score = rmspe(predict, validation_y)
+    return score
 
 
 def train_validation(df, features_x, feature_y):
@@ -62,7 +65,7 @@ def run_trained_models(df_train, features_x, feature_y):
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     model_file = "random-forest.joblib"
     print("loading model from [", model_file, "]")
-    regressor = load("../data/" + model_file)
+    regressor = load(path.join(local_data_dir, model_file))
     predict = regressor.predict(validation_x)
     print("RandomForest RMSPE =", rmspe(predict, validation_y))
 
@@ -203,7 +206,7 @@ def evaluate_model(best_model, title, validation_x, validation_y):
     score = rmspe(predict, validation_y)
     print('Improved ' + title + ' RMSPE = ', score)
     if score < 0.15:
-        dump(best_model, '../data/' + title + '.joblib')
+        dump(best_model, 'data/' + title + '.joblib')
 
     # time consuming
     # plot_learning_curve(best_model, title + " Learning Curve", train_x, train_y,
@@ -221,7 +224,7 @@ def train_xgboost(df_train, features_x, feature_y):
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
     params = {'bst:max_depth': 12,
-              'bst:eta': 0.01,
+              'bst:eta': 0.1,
               'gamma': 1.0,
               'colsample_bytree': 1.0,
               'colsample_bylevel': 0.6,
@@ -231,7 +234,7 @@ def train_xgboost(df_train, features_x, feature_y):
               'subsample': 1.0,
               'nthread': 6,
               'seed': seed,
-              # 'tree_method': 'gpu_hist',
+              'tree_method': 'gpu_hist',
               'silent': True}
 
     print(params)
@@ -242,7 +245,7 @@ def train_xgboost(df_train, features_x, feature_y):
     print('best tree limit:', best_model.best_ntree_limit)
     print('XGBoost RMSPE = ', score)
     xgb.plot_importance(best_model)
-    best_model.save_model('../data/xgboost.model')
+    best_model.save_model(path.join(local_data_dir, 'xgboost.model'))
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
 
 
@@ -267,7 +270,7 @@ def tune_xgboost(df_train, features_x, feature_y):
 
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
-                                       n_iter=200,
+                                       n_iter=40,
                                        n_jobs=40,
                                        verbose=1,
                                        cv=5,

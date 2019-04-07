@@ -5,6 +5,7 @@ import pickle
 import subprocess
 import sys
 import time
+from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -238,12 +239,14 @@ def extract_features(df_raw, df_store_raw):
     print('selected_features: done')
     check_missing(feat_matrix, features_x)
     print('check_missing: done')
-    process_outliers(feat_matrix)
-    print('process_outliers: done')
 
     # dummy code
     feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
     feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
+
+    # outliers
+    process_outliers(feat_matrix)
+    print('process_outliers: done')
 
     print("all features:", features_x)
     print("target:", feature_y)
@@ -373,8 +376,8 @@ def to_weight(y):
 
 def rmspe(yhat, y):
     # convert to sales value as the y are in log scale
-    y = np.exp(y) - 1
-    yhat = np.exp(yhat) - 1
+    y = np.expm1(y)
+    yhat = np.expm1(yhat)
     w = to_weight(y)
     return np.sqrt(np.mean(w * (y - yhat) ** 2))
 
@@ -386,8 +389,8 @@ def rmspe_score(y, yhat):
 
 def rmspe_xg(yhat, y):
     y = y.get_label()
-    y = np.exp(y) - 1
-    yhat = np.exp(yhat) - 1
+    y = np.expm1(y)
+    yhat = np.expm1(yhat)
     w = to_weight(y)
     result = np.sqrt(np.mean(w * (y - yhat) ** 2))
     return "rmspe", result
@@ -395,12 +398,26 @@ def rmspe_xg(yhat, y):
 
 def process_outliers(df):
     # consider outliers with mad >= 3
-    for store in df['Store'].unique():
-        df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
-            mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'], 3)
-        # fill outliers with average sale
-        outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
-        df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'SalesLog'] = np.log1p(
-            outlier_df['AvgYearSales'].median())
-        df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'Sales'] = outlier_df[
-            'AvgYearSales'].median()
+    stores = df['Store'].unique()
+    dfs = [df] * (len(stores))
+    p = Pool(8)
+    df_stores = p.map(process_outliers_store, zip(stores, dfs))
+
+    new_df = pd.concat(df_stores)
+    outliers = (new_df['Type'] == 'train') & (new_df['Outlier'])
+    outliers_df = new_df[outliers]
+    log.info("size of outliers: {}".format(outliers_df.shape))
+    df.loc[df.index] = new_df
+
+
+def process_outliers_store(store_tuple):
+    store, df = store_tuple
+    df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
+        mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'])
+    # fill outliers with average sale
+    outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
+    df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'SalesLog'] = np.log1p(
+        outlier_df['AvgYearSales'].median())
+    df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'Sales'] = outlier_df[
+        'AvgYearSales'].median()
+    return df[df['Store'] == store]
