@@ -24,8 +24,8 @@ feat_file = 'features_x.txt'
 
 def load_data(debug=False):
     if already_extracted():
-        print("features are previously extracted")
-        print("features:", read_features())
+        log.info("features are previously extracted")
+        log.info("features: {}".format(read_features()))
         return None, None
 
     lines = 100 if debug else None
@@ -50,8 +50,8 @@ def load_data(debug=False):
     frames = [df_train, df_test]
     df = pd.concat(frames, sort=True)
 
-    print("data loaded:", df.shape)
-    print("store loaded:", df_store.shape)
+    log.info("data loaded: {}".format(df.shape))
+    log.info("store loaded: {}".format(df_store.shape))
     return df, df_store
 
 
@@ -96,8 +96,8 @@ def load_data_google():
     frames = [df_train, df_test]
     df = pd.concat(frames, sort=True)
 
-    print("data loaded:", df.shape)
-    print("store loaded:", df_store.shape)
+    log.info("data loaded:", df.shape)
+    log.info("store loaded:", df_store.shape)
     return df, df_store
 
 
@@ -224,21 +224,21 @@ def extract_features(df_raw, df_store_raw):
 
     start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
-    print('extract_sales_feat: done')
+    log.info('extract_sales_feat: done')
     df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
-    print('extract_recent_data: done')
+    log.info('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
-    print('extract_store_feat: done')
+    log.info('extract_store_feat: done')
     # construct the feature matrix
     feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
                            on=['Store'])
-    print('construct feature matrix: done')
+    log.info('construct feature matrix: done')
 
     features_x = selected_features(sales_features, store_features)
-    print('selected_features: done')
+    log.info('selected_features: done')
     check_missing(feat_matrix, features_x)
-    print('check_missing: done')
+    log.info('check_missing: done')
 
     # dummy code
     feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
@@ -246,15 +246,15 @@ def extract_features(df_raw, df_store_raw):
 
     # outliers
     process_outliers(feat_matrix)
-    print('process_outliers: done')
+    log.info('process_outliers: done')
 
-    print("all features:", features_x)
-    print("target:", feature_y)
-    print("feature matrix dimension:", feat_matrix.shape)
+    log.info("all features: {}".format(features_x))
+    log.info("target: {}".format(feature_y))
+    log.info("feature matrix dimension: {}".format(feat_matrix.shape))
 
     feat_matrix.to_pickle(path.join(local_data_dir, feat_matrix_pkl))
     features_to_file(features_x)
-    print("--- %.2f minutes ---" % ((time.time() - start_time) / 60))
+    log.info("--- %.2f minutes ---" % ((time.time() - start_time) / 60))
 
     return feat_matrix, features_x, feature_y
 
@@ -281,7 +281,7 @@ def check_missing(feat_matrix, features_x):
     for feature in features_x:
         missing = feat_matrix[feature].isna().sum()
         if missing > 0:
-            print("missing value of", feature, missing)
+            log.info("missing value of", feature, missing)
 
 
 def competition_open_datetime(line):
@@ -415,7 +415,7 @@ def process_outliers_store(store_tuple):
     df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
         mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'])
     # fill outliers with average sale
-    outlier_df = df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
+    outlier_df = df[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
     df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'SalesLog'] = np.log1p(
         outlier_df['AvgYearSales'].median())
     df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'Sales'] = outlier_df[

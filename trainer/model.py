@@ -1,3 +1,4 @@
+import logging as log
 import os.path as path
 import time
 
@@ -21,23 +22,21 @@ def run_linear_regression(train_x, train_y, validation_x, validation_y):
     regressor = LinearRegression(n_jobs=-1)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
-    print('LinearRegression RMSPE =', rmspe(yhat=predict, y=validation_y))
+    return rmspe(yhat=predict, y=validation_y)
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
     regressor = RandomForestRegressor(n_jobs=-1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
-    score = rmspe(predict, validation_y)
-    return score
+    return rmspe(predict, validation_y)
 
 
 def run_xgboost(train_x, train_y, validation_x, validation_y):
     regressor = xgb.XGBRegressor(nthread=-1, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
-    score = rmspe(predict, validation_y)
-    return score
+    return rmspe(predict, validation_y)
 
 
 def train_validation(df, features_x, feature_y):
@@ -56,8 +55,13 @@ def run_models(df_train, features_x, feature_y):
 def quick_score(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
-    score = run_random_forest(train_x, train_y, validation_x, validation_y)
-    return score, (time.time() - start_time)
+    score1 = run_linear_regression(train_x, train_y, validation_x, validation_y)
+    log.info("linear regression score = {}".format(score1))
+    score2 = run_xgboost(train_x, train_y, validation_x, validation_y)
+    log.info("xgboost score = {}".format(score2))
+    score3 = run_random_forest(train_x, train_y, validation_x, validation_y)
+    log.info("random forest score = {}".format(score3))
+    return np.mean([score1, score2, score3]), (time.time() - start_time)
 
 
 def run_trained_models(df_train, features_x, feature_y):
