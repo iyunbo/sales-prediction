@@ -216,7 +216,7 @@ def already_extracted():
     return file.is_file()
 
 
-def extract_features(df_raw, df_store_raw):
+def extract_features(df_raw=None, df_store_raw=None):
     feature_y = 'SalesLog'
     if already_extracted():
         df = pd.read_pickle(path.join(local_data_dir, feat_matrix_pkl))
@@ -404,20 +404,21 @@ def process_outliers(df):
     df_stores = p.map(process_outliers_store, zip(stores, dfs))
 
     new_df = pd.concat(df_stores)
-    outliers = (new_df['Type'] == 'train') & (new_df['Outlier'])
-    outliers_df = new_df[outliers]
+    outliers_df = new_df[new_df['Outlier'] & (new_df['Type'] == 'train')]
     log.info("size of outliers: {}".format(outliers_df.shape))
     df.loc[df.index] = new_df
+    df.loc[df.index, 'Outlier'] = new_df['Outlier']
 
 
 def process_outliers_store(store_tuple):
     store, df = store_tuple
-    df.loc[(df['Type'] == 'train') & (df['Store'] == store), 'Outlier'] = \
-        mad_based_outlier(df.loc[(df['Type'] == 'train') & (df['Store'] == store)]['Sales'])
+    type_outlier = (df['Type'] == 'train')
+    df.loc[(df['Store'] == store) & type_outlier, 'Outlier'] = mad_based_outlier(
+        df[(df['Store'] == store) & type_outlier]['Sales'], 3)
+    df.loc[(df['Store'] == store) & (df['Sales'] == 0) & type_outlier, 'Outlier'] = True
     # fill outliers with average sale
-    outlier_df = df[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store)]
-    df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'SalesLog'] = np.log1p(
-        outlier_df['AvgYearSales'].median())
-    df.loc[(df['Type'] == 'train') & (df['Outlier']) & (df['Store'] == store), 'Sales'] = outlier_df[
-        'AvgYearSales'].median()
+    outlier_df = df[(df['Outlier']) & (df['Store'] == store) & type_outlier]
+    df.loc[(df['Outlier']) & (df['Store'] == store) & type_outlier, 'SalesLog'] = np.log1p(
+        outlier_df['AvgSales'].median())
+    df.loc[(df['Outlier']) & (df['Store'] == store) & type_outlier, 'Sales'] = outlier_df['AvgSales'].median()
     return df[df['Store'] == store]
