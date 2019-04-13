@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from outliers import smirnov_grubbs as grubbs
 
 log.basicConfig(level=log.INFO, format='%(asctime)s - [%(name)s] - [%(levelname)s]: %(message)s', stream=sys.stdout)
 seed = 42
@@ -158,6 +159,8 @@ def extract_recent_data(df_raw, features_x):
     features_x.append("HolidayLastWeek")
     features_x.append("HolidayNextWeek")
 
+    log.info('extract_recent_data: done')
+
     return df, features_x
 
 
@@ -216,42 +219,55 @@ def extract_features(df_raw=None, df_store_raw=None):
 
     start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
-    df_sales = df_sales.reset_index()
-    log.info('extract_sales_feat: done')
+
     df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
-    # outliers
+
     process_outliers(df_sales)
-    log.info('process_outliers: done')
+
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
-    log.info('extract_recent_data: done')
+
     df_store, store_features = extract_store_feat(df_store_raw)
-    log.info('extract_store_feat: done')
+
+    feat_matrix = construct_feat_matrix(df_sales, df_store, sales_features, sales_y, store_features)
+
+    features_x = selected_features(sales_features, store_features)
+
+    dummy_encode(feat_matrix)
+
+    check_missing(feat_matrix, features_x)
+
+    check_inf(feat_matrix, features_x, feature_y)
+
+    show_prepared_data(feat_matrix, feature_y, features_x)
+
+    check_outliers(feat_matrix[features_x + [feature_y, 'Store', 'Type']])
+
+    feat_matrix.to_pickle(path.join(local_data_dir, feat_matrix_pkl))
+    features_to_file(features_x)
+
+    log.info("--- %.2f minutes ---" % ((time.time() - start_time) / 60))
+
+    return feat_matrix, features_x, feature_y
+
+
+def construct_feat_matrix(df_sales, df_store, sales_features, sales_y, store_features):
     # construct the feature matrix
     feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
                            on=['Store'])
-    log.info('construct feature matrix: done')
+    log.info('feature matrix constructed')
+    return feat_matrix
 
-    features_x = selected_features(sales_features, store_features)
-    log.info('selected_features: done')
 
-    # dummy code
-    feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
-    feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
-
-    check_missing(feat_matrix, features_x, feature_y)
-    log.info('check_missing: done')
-    check_inf(feat_matrix, features_x, feature_y)
-    log.info('check_inf: done')
-
+def show_prepared_data(feat_matrix, feature_y, features_x):
     log.info("all features: {}".format(features_x))
     log.info("target: {}".format(feature_y))
     log.info("feature matrix dimension: {}".format(feat_matrix.shape))
 
-    feat_matrix.to_pickle(path.join(local_data_dir, feat_matrix_pkl))
-    features_to_file(features_x)
-    log.info("--- %.2f minutes ---" % ((time.time() - start_time) / 60))
 
-    return feat_matrix, features_x, feature_y
+def dummy_encode(feat_matrix):
+    # dummy code
+    feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
+    feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
 
 
 def features_to_file(features_x):
@@ -270,14 +286,16 @@ def selected_features(sales_features, store_features):
     features_x.remove("Store")
     features_x.remove("Id")
     features_x.remove("DateInt")
+    log.info('selected_features: done')
     return features_x
 
 
-def check_missing(feat_matrix, features_x, feature_y):
-    for feature in [feature_y] + features_x:
-        missing = feat_matrix[feature].isna().sum()
+def check_missing(feat_matrix, features_x):
+    for feature in features_x:
+        missing = feat_matrix[feature].isna().any()
         if missing > 0:
-            log.info("missing value of {} : {}".format(feature, missing))
+            raise ValueError("missing value of {} : {}".format(feature, missing))
+    log.info('check_missing: done')
 
 
 def check_inf(feat_matrix, features_x, feature_y):
@@ -286,7 +304,8 @@ def check_inf(feat_matrix, features_x, feature_y):
         if (X.dtype.char in np.typecodes['AllFloat']
                 and not np.isfinite(X.sum())
                 and not np.isfinite(X).all()):
-            log.info("INF value of {}".format(feature))
+            raise ValueError("INF value of {}".format(feature))
+    log.info('check_inf: done')
 
 
 def competition_open_datetime(line):
@@ -317,6 +336,8 @@ def extract_store_feat(df_store_raw):
     df_store['Promo2Weeks'] = df_store.apply(lambda row: promo2_weeks(row), axis=1).astype(np.int64)
     # TODO how to use PromoInterval
     store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks']
+
+    log.info('extract_store_feat: done')
     return df_store, store_features
 
 
@@ -358,8 +379,9 @@ def extract_sales_feat(df_raw):
     features_x.append('DateInt')
     features_x.append('IsWeekend')
     features_x.append('Id')
+    log.info('extract_sales_feat: done')
 
-    return df, features_x, features_y
+    return df.reset_index(), features_x, features_y
 
 
 def mad_based_outlier(points, thresh=3.5):
@@ -420,7 +442,8 @@ def process_outliers(df):
     outliers_df = new_df[new_df['Outlier']]
     log.info("size of outliers: {}".format(outliers_df.shape))
     df[new_df.columns] = new_df[new_df.columns]
-    df['Outlier'] = new_df['Outlier']
+
+    log.info('process_outliers: done')
 
 
 def process_outliers_store(df):
@@ -432,3 +455,32 @@ def process_outliers_store(df):
     df.loc[(df['Outlier']) & type_outlier, 'SalesLog'] = np.log1p(df[df['Sales'] > 0]['Sales'].median())
     df.loc[(df['Outlier']) & type_outlier, 'Sales'] = df[df['Sales'] > 0]['Sales'].median()
     return df
+
+
+def check_outliers(df):
+    log.info("checking outliers with test of grubbs")
+    dfs = []
+    for store in df['Store'].unique():
+        dfs.append(df[(df['Store'] == store) & (df['Type'] == 'train')].copy())
+    p = Pool(8)
+    df_stores = p.map(test_grubbs, dfs)
+    new_df = pd.concat(df_stores)
+    new_df.to_csv(path.join(local_data_dir, 'outliers.csv'))
+    log.info("checking outliers: done, total outliers: {}".format(new_df['Count'].sum()))
+
+
+def test_grubbs(df):
+    outliers = pd.DataFrame(columns=['Store', 'Column', 'Count'])
+    i = 0
+    store = df['Store'].iloc[0]
+    columns = list(df.columns)
+    columns.remove('StateHoliday')
+    columns.remove('Type')
+    for num_col in columns:
+        outlier_idx = grubbs.two_sided_test_indices(df[num_col], 0.05)
+        outlier_count = len(outlier_idx)
+        if outlier_count > 0:
+            outliers.loc[i] = [store, num_col, outlier_count]
+            i = i + 1
+
+    return outliers
