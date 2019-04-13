@@ -320,6 +320,12 @@ def extract_store_feat(df_store_raw):
     return df_store, store_features
 
 
+def is_weekend(row):
+    if row['DayOfWeek'] == 6 or row['DayOfWeek'] == 7 or row['DayOfWeek'] == 0:
+        return 1
+    return 0
+
+
 def extract_sales_feat(df_raw):
     df = df_raw.copy()
 
@@ -341,6 +347,8 @@ def extract_sales_feat(df_raw):
     df['DayOfMonth'] = df['DayOfMonth'].fillna(0)
     df['DayOfYear'] = df['DayOfYear'].fillna(0)
     df['DateInt'] = date_feat.year * 10000 + date_feat.month * 100 + date_feat.day
+    df['IsWeekend'] = df.apply(lambda row: is_weekend(row), axis=1).astype(
+        np.int64)
     features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
@@ -348,6 +356,7 @@ def extract_sales_feat(df_raw):
     features_x.append('DayOfMonth')
     features_x.append('DayOfYear')
     features_x.append('DateInt')
+    features_x.append('IsWeekend')
     features_x.append('Id')
 
     return df, features_x, features_y

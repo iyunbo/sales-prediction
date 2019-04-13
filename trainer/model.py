@@ -195,7 +195,7 @@ def train_xgboost(df_train, features_x, feature_y):
     dtrain = xgb.DMatrix(train_x, train_y)
     dvalidation = xgb.DMatrix(validation_x, validation_y)
     # setup parameters
-    num_round = 2000
+    num_round = 4000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
     params = {'bst:max_depth': 20,
