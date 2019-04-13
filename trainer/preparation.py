@@ -269,6 +269,7 @@ def selected_features(sales_features, store_features):
     features_x.remove("Type")
     features_x.remove("Store")
     features_x.remove("Id")
+    features_x.remove("DateInt")
     return features_x
 
 
