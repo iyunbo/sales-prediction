@@ -295,7 +295,7 @@ def competition_open_datetime(line):
 
 
 def competition_dist(line):
-    return np.log(int(line['CompetitionDistance']))
+    return np.log1p(int(line['CompetitionDistance']))
 
 
 def promo2_weeks(line):
