@@ -114,8 +114,6 @@ def extract_recent_data(df_raw, features_x):
         df.loc[(df['DateInt'] > 20150608) & (df['DateInt'] <= 20150615)])
     sales_last_day, customers_last_day = calculate_avg(df.loc[df['DateInt'] == 20150614])
     avg_sales_school_holiday, avg_customers_school_holiday = calculate_avg(df.loc[(df['SchoolHoliday'] == 1)])
-    avg_sales_state_holiday, avg_customers_state_holiday = calculate_avg(
-        df.loc[df['StateHoliday'].isin(['a', 'b', 'c'])])
     avg_sales_promo, avg_customers_promo = calculate_avg(df.loc[(df['Promo'] == 1)])
     holidays = calculate_holidays(df)
 
@@ -138,10 +136,6 @@ def extract_recent_data(df_raw, features_x):
     df = pd.merge(df, avg_customers_school_holiday.reset_index(name='AvgCustomersSchoolHoliday'), how='left',
                   on=['Store'])
 
-    df = pd.merge(df, avg_sales_state_holiday.reset_index(name='AvgStateHoliday'), how='left', on=['Store'])
-    df = pd.merge(df, avg_customers_state_holiday.reset_index(name='AvgCustomersStateHoliday'), how='left',
-                  on=['Store'])
-
     df = pd.merge(df, avg_sales_promo.reset_index(name='AvgPromo'), how='left', on=['Store'])
     df = pd.merge(df, avg_customers_promo.reset_index(name='AvgCustomersPromo'), how='left', on=['Store'])
 
@@ -159,8 +153,6 @@ def extract_recent_data(df_raw, features_x):
     features_x.append("LastDayCustomers")
     features_x.append("AvgSchoolHoliday")
     features_x.append("AvgCustomersSchoolHoliday")
-    features_x.append("AvgStateHoliday")
-    features_x.append("AvgCustomersStateHoliday")
     features_x.append("AvgPromo")
     features_x.append("AvgCustomersPromo")
     features_x.append("HolidayLastWeek")
@@ -224,8 +216,12 @@ def extract_features(df_raw=None, df_store_raw=None):
 
     start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
+    df_sales = df_sales.reset_index()
     log.info('extract_sales_feat: done')
     df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
+    # outliers
+    process_outliers(df_sales)
+    log.info('process_outliers: done')
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
     log.info('extract_recent_data: done')
     df_store, store_features = extract_store_feat(df_store_raw)
@@ -237,16 +233,15 @@ def extract_features(df_raw=None, df_store_raw=None):
 
     features_x = selected_features(sales_features, store_features)
     log.info('selected_features: done')
-    check_missing(feat_matrix, features_x)
-    log.info('check_missing: done')
 
     # dummy code
     feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
     feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
 
-    # outliers
-    process_outliers(feat_matrix)
-    log.info('process_outliers: done')
+    check_missing(feat_matrix, features_x, feature_y)
+    log.info('check_missing: done')
+    check_inf(feat_matrix, features_x, feature_y)
+    log.info('check_inf: done')
 
     log.info("all features: {}".format(features_x))
     log.info("target: {}".format(feature_y))
@@ -277,11 +272,20 @@ def selected_features(sales_features, store_features):
     return features_x
 
 
-def check_missing(feat_matrix, features_x):
-    for feature in features_x:
+def check_missing(feat_matrix, features_x, feature_y):
+    for feature in [feature_y] + features_x:
         missing = feat_matrix[feature].isna().sum()
         if missing > 0:
-            log.info("missing value of", feature, missing)
+            log.info("missing value of {} : {}".format(feature, missing))
+
+
+def check_inf(feat_matrix, features_x, feature_y):
+    for feature in [feature_y] + features_x:
+        X = feat_matrix[feature]
+        if (X.dtype.char in np.typecodes['AllFloat']
+                and not np.isfinite(X.sum())
+                and not np.isfinite(X).all()):
+            log.info("INF value of {}".format(feature))
 
 
 def competition_open_datetime(line):
@@ -316,8 +320,7 @@ def extract_store_feat(df_store_raw):
 
 
 def extract_sales_feat(df_raw):
-    # Remove rows where store is open, but no sales.
-    df = df_raw.loc[~((df_raw['Open'] == 1) & (df_raw['Sales'] == 0))].copy()
+    df = df_raw.copy()
 
     features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Type']
     features_y = ['SalesLog', 'Sales', 'Customers']
@@ -397,28 +400,25 @@ def rmspe_xg(yhat, y):
 
 
 def process_outliers(df):
-    # consider outliers with mad >= 3
-    stores = df['Store'].unique()
-    dfs = [df] * (len(stores))
+    dfs = []
+    for store in df['Store'].unique():
+        dfs.append(df[df['Store'] == store].copy())
     p = Pool(8)
-    df_stores = p.map(process_outliers_store, zip(stores, dfs))
-
+    df_stores = p.map(process_outliers_store, dfs)
     new_df = pd.concat(df_stores)
-    outliers_df = new_df[new_df['Outlier'] & (new_df['Type'] == 'train')]
+
+    outliers_df = new_df[new_df['Outlier']]
     log.info("size of outliers: {}".format(outliers_df.shape))
-    df.loc[df.index] = new_df
-    df.loc[df.index, 'Outlier'] = new_df['Outlier']
+    df[new_df.columns] = new_df[new_df.columns]
+    df['Outlier'] = new_df['Outlier']
 
 
-def process_outliers_store(store_tuple):
-    store, df = store_tuple
+def process_outliers_store(df):
     type_outlier = (df['Type'] == 'train')
-    df.loc[(df['Store'] == store) & type_outlier, 'Outlier'] = mad_based_outlier(
-        df[(df['Store'] == store) & type_outlier]['Sales'], 3)
-    df.loc[(df['Store'] == store) & (df['Sales'] == 0) & type_outlier, 'Outlier'] = True
+    df.loc[df.index, 'Outlier'] = False
+    df.loc[type_outlier, 'Outlier'] = mad_based_outlier(df[type_outlier]['Sales'], 3)
+    df.loc[(df['Sales'] == 0) & type_outlier, 'Outlier'] = True
     # fill outliers with average sale
-    outlier_df = df[(df['Outlier']) & (df['Store'] == store) & type_outlier]
-    df.loc[(df['Outlier']) & (df['Store'] == store) & type_outlier, 'SalesLog'] = np.log1p(
-        outlier_df['AvgSales'].median())
-    df.loc[(df['Outlier']) & (df['Store'] == store) & type_outlier, 'Sales'] = outlier_df['AvgSales'].median()
-    return df[df['Store'] == store]
+    df.loc[(df['Outlier']) & type_outlier, 'SalesLog'] = np.log1p(df[df['Sales'] > 0]['Sales'].median())
+    df.loc[(df['Outlier']) & type_outlier, 'Sales'] = df[df['Sales'] > 0]['Sales'].median()
+    return df

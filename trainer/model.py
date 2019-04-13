@@ -198,15 +198,15 @@ def train_xgboost(df_train, features_x, feature_y):
     num_round = 2000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
-    params = {'bst:max_depth': 12,
-              'bst:eta': 0.01,
-              'gamma': 1.0,
-              'colsample_bytree': 1.0,
-              'colsample_bylevel': 0.6,
+    params = {'bst:max_depth': 20,
+              'bst:eta': 0.02,
+              'gamma': 0.5,
+              'colsample_bytree': 0.6,
+              'colsample_bylevel': 0.5,
               'min_child_weight': 5.0,
-              'n_estimator': 100,
-              'reg_lambda': 10.0,
-              'subsample': 1.0,
+              'n_estimator': 160,
+              'reg_lambda': 100.0,
+              'subsample': 0.6,
               'nthread': 6,
               'random_state': seed,
               'tree_method': 'gpu_hist',
@@ -214,7 +214,7 @@ def train_xgboost(df_train, features_x, feature_y):
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=500)
+                           early_stopping_rounds=400)
     predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dvalidation)
     print('best tree limit:', best_model.best_ntree_limit)
