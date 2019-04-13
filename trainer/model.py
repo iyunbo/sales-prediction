@@ -84,30 +84,7 @@ def run_trained_models(df_train, features_x, feature_y):
     print("XGBoost RMSPE =", score[1])
 
 
-def final_model(df_train, features_x, feature_y):
-    start_time = time.time()
-    # tuned_params = {'bootstrap': True,
-    #                 'criterion': 'mse',
-    #                 'max_depth': 200,
-    #                 'max_features': 'auto',
-    #                 'max_leaf_nodes': None,
-    #                 'min_impurity_decrease': 0,
-    #                 'min_impurity_split': None,
-    #                 'min_samples_leaf': 10,
-    #                 'min_samples_split': 2,
-    #                 'min_weight_fraction_leaf': 0,
-    #                 'n_estimators': 150,
-    #                 'n_jobs': 6,
-    #                 'oob_score': True,
-    #                 'random_state': seed,
-    #                 'verbose': 0,
-    #                 'warm_start': True
-    #                 }
-    # random_forest = RandomForestRegressor(**tuned_params)
-    # # training
-    # final_regressor = random_forest.fit(df_train[features_x], df_train[feature_y])
-    # print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
-
+def final_model():
     final_regressor = xgb.Booster({'nthread': 8})  # init model
     final_regressor.load_model(path.join(local_data_dir, 'xgboost.model'))  # load data
 
@@ -195,7 +172,7 @@ def train_xgboost(df_train, features_x, feature_y):
     dtrain = xgb.DMatrix(train_x, train_y)
     dvalidation = xgb.DMatrix(validation_x, validation_y)
     # setup parameters
-    num_round = 4000
+    num_round = 8000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
     params = {'bst:max_depth': 20,

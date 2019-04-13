@@ -300,10 +300,10 @@ def check_missing(feat_matrix, features_x):
 
 def check_inf(feat_matrix, features_x, feature_y):
     for feature in [feature_y] + features_x:
-        X = feat_matrix[feature]
-        if (X.dtype.char in np.typecodes['AllFloat']
-                and not np.isfinite(X.sum())
-                and not np.isfinite(X).all()):
+        vec = feat_matrix[feature]
+        if (vec.dtype.char in np.typecodes['AllFloat']
+                and not np.isfinite(vec.sum())
+                and not np.isfinite(vec).all()):
             raise ValueError("INF value of {}".format(feature))
     log.info('check_inf: done')
 
@@ -448,8 +448,12 @@ def process_outliers(df):
 
 def process_outliers_store(df):
     type_outlier = (df['Type'] == 'train')
+    # by default, values are not outlier
     df.loc[df.index, 'Outlier'] = False
-    df.loc[type_outlier, 'Outlier'] = mad_based_outlier(df[type_outlier]['Sales'], 3)
+    # detect outliers by test of grubbs
+    outlier_idx = grubbs.two_sided_test_indices(df[type_outlier]['Sales'], 0.05)
+    # tag outliers
+    df.loc[df.index[outlier_idx], 'Outlier'] = True
     df.loc[(df['Sales'] == 0) & type_outlier, 'Outlier'] = True
     # fill outliers with average sale
     df.loc[(df['Outlier']) & type_outlier, 'SalesLog'] = np.log1p(df[df['Sales'] > 0]['Sales'].median())
