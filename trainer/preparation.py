@@ -5,6 +5,7 @@ import pickle
 import subprocess
 import sys
 import time
+from datetime import timedelta
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -211,11 +212,76 @@ def already_extracted():
     return file.is_file()
 
 
+def extract_refurbishment_events(df):
+    df['WasRefurbishments'] = 0
+    df['SoonRefurbishments'] = 0
+    closed_dates = df[df['Open'] == 0]['Date'].sort_values(ascending=True)
+    refurbishment_ends = find_event_ends(closed_dates)
+    refurbishment_starts = find_event_starts(closed_dates, refurbishment_ends)
+    for end in refurbishment_ends:
+        for delta in [1, 2, 3, 4, 5]:
+            df.loc[(df['Date'] == end + timedelta(days=delta)) & (df['Open'] == 0), 'WasRefurbishments'] = 1
+    for start in refurbishment_starts:
+        for delta in [-1, -2, -3, -4, -5]:
+            df.loc[(df['Date'] == start + timedelta(days=delta)) & (df['Open'] == 0), 'SoonRefurbishments'] = 1
+    return df
+
+
+def find_event_start(dates, end):
+    inverse_dates = np.flip(dates)
+    start = None
+    target = end
+    for date in inverse_dates:
+        if date.date() == target.date():
+            start = date
+            target = target - timedelta(days=1)
+        else:
+            if not pd.isna(start):
+                return start
+
+    if not pd.isna(start):
+        return start
+    else:
+        raise ValueError("Not Found: {} from {}".format(end, dates))
+
+
+def find_event_starts(dates, end_dates):
+    event_starts = []
+    for end in end_dates:
+        if not pd.isna(end):
+            start = find_event_start(dates, end)
+            event_starts.append(start)
+    return event_starts
+
+
+def find_event_ends(closed_dates, min_continued_days=5):
+    prev_date = pd.to_datetime('2013-01-01')
+    count = 0
+    event_ends = []
+    for date in closed_dates:
+        if date == prev_date + timedelta(days=1):
+            count = count + 1
+        else:
+            if count >= min_continued_days:
+                event_ends.append(prev_date)
+            count = 0
+        prev_date = date
+    return event_ends
+
+
 def extract_events_feat(feat_matrix, sales_features):
     log.info("extracting events feature")
+
     new_df = folk_join(feat_matrix, extract_months_since_promo2)
     feat_matrix['MonthsSincePromo2'] = new_df['MonthsSincePromo2']
     sales_features.append('MonthsSincePromo2')
+
+    new_df = folk_join(feat_matrix, extract_refurbishment_events)
+    feat_matrix['SoonRefurbishments'] = new_df['SoonRefurbishments']
+    feat_matrix['WasRefurbishments'] = new_df['WasRefurbishments']
+    sales_features.append('SoonRefurbishments')
+    sales_features.append('WasRefurbishments')
+
     log.info("extracting events feature: done")
     return feat_matrix, sales_features
 
@@ -337,6 +403,8 @@ def selected_features(sales_features, store_features):
     features_x.remove("Store")
     features_x.remove("Id")
     features_x.remove("DateInt")
+    features_x.remove('Date')
+    features_x.remove('Open')
     features_x.remove('Promo2')
     features_x.remove('PromoInterval')
     log.info('selected_features: done')
@@ -345,7 +413,7 @@ def selected_features(sales_features, store_features):
 
 def check_missing(feat_matrix, features_x):
     for feature in features_x:
-        missing = feat_matrix[feature].isna().any()
+        missing = feat_matrix[feature].isna().sum()
         if missing > 0:
             raise ValueError("missing value of {} : {}".format(feature, missing))
     log.info('check_missing: done')
@@ -435,7 +503,7 @@ def extract_sales_feat(df_raw):
     df['IsSunday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 7), axis=1).astype(np.int64)
     df['SoonChristmas'] = df.apply(lambda row: is_near_christmas(row, -5), axis=1).astype(np.int64)
     df['WasChristmas'] = df.apply(lambda row: is_near_christmas(row, 5), axis=1).astype(np.int64)
-    features_x.remove('Date')
+    # features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
     features_x.append('Year')
@@ -446,6 +514,7 @@ def extract_sales_feat(df_raw):
     features_x.append('IsSunday')
     features_x.append('SoonChristmas')
     features_x.append('WasChristmas')
+    features_x.append('Open')
     features_x.append('Id')
     log.info('extract_sales_feat: done')
 
@@ -498,7 +567,7 @@ def folk_join(df, func, n_jobs=8, by_feat='Store'):
         folks.append(df[df[by_feat] == feature_val].copy())
     process_pool = Pool(n_jobs)
     df_stores = process_pool.map(func, folks)
-    joined = pd.concat(df_stores)
+    joined = pd.concat(df_stores, sort=False)
     return joined
 
 
