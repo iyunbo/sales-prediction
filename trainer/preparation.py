@@ -220,7 +220,8 @@ def extract_features(df_raw=None, df_store_raw=None):
     start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
 
-    df_sales.loc[(df_sales['DateInt'] > 20150615) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
+    train_validation_limit = 20150615
+    df_sales.loc[(df_sales['DateInt'] > train_validation_limit) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
 
     process_outliers(df_sales)
 
@@ -252,7 +253,8 @@ def extract_features(df_raw=None, df_store_raw=None):
 
 def construct_feat_matrix(df_sales, df_store, sales_features, sales_y, store_features):
     # construct the feature matrix
-    feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y))], df_store[store_features], how='left',
+    feat_matrix = pd.merge(df_sales[list(set(sales_features + sales_y + ['Outlier']))], df_store[store_features],
+                           how='left',
                            on=['Store'])
     log.info('feature matrix constructed')
     return feat_matrix
@@ -341,8 +343,14 @@ def extract_store_feat(df_store_raw):
     return df_store, store_features
 
 
-def is_weekend(row):
-    if row['DayOfWeek'] == 6 or row['DayOfWeek'] == 7 or row['DayOfWeek'] == 0:
+def is_day_of_week(row, day_of_week):
+    if row['DayOfWeek'] == day_of_week:
+        return 1
+    return 0
+
+
+def is_month(row, target_month):
+    if row['Month'] == target_month:
         return 1
     return 0
 
@@ -368,8 +376,8 @@ def extract_sales_feat(df_raw):
     df['DayOfMonth'] = df['DayOfMonth'].fillna(0)
     df['DayOfYear'] = df['DayOfYear'].fillna(0)
     df['DateInt'] = date_feat.year * 10000 + date_feat.month * 100 + date_feat.day
-    df['IsWeekend'] = df.apply(lambda row: is_weekend(row), axis=1).astype(
-        np.int64)
+    df['IsSaturday'] = df.apply(lambda row: is_day_of_week(row, 6), axis=1).astype(np.int64)
+    df['IsSunday'] = df.apply(lambda row: is_day_of_week(row, 7), axis=1).astype(np.int64)
     features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
@@ -377,29 +385,12 @@ def extract_sales_feat(df_raw):
     features_x.append('DayOfMonth')
     features_x.append('DayOfYear')
     features_x.append('DateInt')
-    features_x.append('IsWeekend')
+    features_x.append('IsSaturday')
+    features_x.append('IsSunday')
     features_x.append('Id')
     log.info('extract_sales_feat: done')
 
     return df.reset_index(), features_x, features_y
-
-
-def mad_based_outlier(points, thresh=3.5):
-    if points.empty:
-        return False
-    if len(points.shape) == 1:
-        points = points[:, None]
-    median = np.median(points, axis=0)
-    diff = np.sum((points - median) ** 2, axis=-1)
-    diff = np.sqrt(diff)
-    med_abs_deviation = np.median(diff)
-
-    if med_abs_deviation == 0:
-        return False
-
-    modified_z_score = 0.6745 * diff / med_abs_deviation
-
-    return modified_z_score > thresh
 
 
 def to_weight(y):
