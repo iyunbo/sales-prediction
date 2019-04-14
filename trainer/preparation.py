@@ -211,6 +211,53 @@ def already_extracted():
     return file.is_file()
 
 
+def extract_events_feat(feat_matrix, sales_features):
+    log.info("extracting events feature")
+    new_df = folk_join(feat_matrix, extract_months_since_promo2)
+    feat_matrix['MonthsSincePromo2'] = new_df['MonthsSincePromo2']
+    sales_features.append('MonthsSincePromo2')
+    log.info("extracting events feature: done")
+    return feat_matrix, sales_features
+
+
+months_dict = {
+    'Jan': 1,
+    'Feb': 2,
+    'Mar': 3,
+    'Apr': 4,
+    'May': 5,
+    'Jun': 6,
+    'Jul': 7,
+    'Aug': 8,
+    'Sept': 9,
+    'Oct': 10,
+    'Nov': 11,
+    'Dec': 12
+}
+
+
+def calculate_months_since_promo2(row):
+    default_val = 0
+    if row['Promo2'] == 0:
+        return default_val
+    if row['Promo2Weeks'] < 0:
+        return default_val
+    intervals = map(lambda mon: months_dict[mon], row['PromoInterval'].split(sep=','))
+    month_num = row['Month']
+    months_since = map(lambda mon: month_num - mon, intervals)
+    least_months_since = set(filter(lambda mon: mon >= 0, months_since))
+    if len(least_months_since) == 0:
+        return default_val
+    least_months_since = min(least_months_since)
+
+    return (3 - least_months_since) * row['AvgSales']
+
+
+def extract_months_since_promo2(df):
+    df['MonthsSincePromo2'] = df.apply(lambda row: calculate_months_since_promo2(row), axis=1).astype(np.int64)
+    return df
+
+
 def extract_features(df_raw=None, df_store_raw=None):
     feature_y = 'SalesLog'
     if already_extracted():
@@ -223,13 +270,15 @@ def extract_features(df_raw=None, df_store_raw=None):
     train_validation_limit = 20150615
     df_sales.loc[(df_sales['DateInt'] > train_validation_limit) & (df_sales['Type'] == 'train'), 'Type'] = 'validation'
 
-    process_outliers(df_sales)
+    process_outlier_sales(df_sales)
 
     df_sales, sales_features = extract_recent_data(df_sales, sales_features)
 
     df_store, store_features = extract_store_feat(df_store_raw)
 
     feat_matrix = construct_feat_matrix(df_sales, df_store, sales_features, sales_y, store_features)
+
+    feat_matrix, sales_features = extract_events_feat(feat_matrix, sales_features)
 
     features_x = selected_features(sales_features, store_features)
 
@@ -288,6 +337,8 @@ def selected_features(sales_features, store_features):
     features_x.remove("Store")
     features_x.remove("Id")
     features_x.remove("DateInt")
+    features_x.remove('Promo2')
+    features_x.remove('PromoInterval')
     log.info('selected_features: done')
     return features_x
 
@@ -325,6 +376,12 @@ def promo2_weeks(line):
     return (2015 - line['Promo2SinceYear']) * 52 + line['Promo2SinceWeek']
 
 
+def is_of_value(row, feature, value):
+    if row[feature] == value:
+        return 1
+    return 0
+
+
 def extract_store_feat(df_store_raw):
     df_store = df_store_raw.copy()
     # Convert store type and Assortment to numerical categories
@@ -336,23 +393,11 @@ def extract_store_feat(df_store_raw):
     df_store['CompetitionDistance'] = df_store.apply(lambda row: competition_dist(row), axis=1).astype(np.int64)
     # weeks since promo2
     df_store['Promo2Weeks'] = df_store.apply(lambda row: promo2_weeks(row), axis=1).astype(np.int64)
-    # TODO how to use PromoInterval
-    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks']
+    store_features = ['Store', 'StoreType', 'Assortment', 'CompetitionDistance', 'CompetitionOpenSince', 'Promo2Weeks',
+                      'Promo2', 'PromoInterval']
 
     log.info('extract_store_feat: done')
     return df_store, store_features
-
-
-def is_day_of_week(row, day_of_week):
-    if row['DayOfWeek'] == day_of_week:
-        return 1
-    return 0
-
-
-def is_month(row, target_month):
-    if row['Month'] == target_month:
-        return 1
-    return 0
 
 
 def extract_sales_feat(df_raw):
@@ -376,8 +421,8 @@ def extract_sales_feat(df_raw):
     df['DayOfMonth'] = df['DayOfMonth'].fillna(0)
     df['DayOfYear'] = df['DayOfYear'].fillna(0)
     df['DateInt'] = date_feat.year * 10000 + date_feat.month * 100 + date_feat.day
-    df['IsSaturday'] = df.apply(lambda row: is_day_of_week(row, 6), axis=1).astype(np.int64)
-    df['IsSunday'] = df.apply(lambda row: is_day_of_week(row, 7), axis=1).astype(np.int64)
+    df['IsSaturday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 6), axis=1).astype(np.int64)
+    df['IsSunday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 7), axis=1).astype(np.int64)
     features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
@@ -422,13 +467,8 @@ def rmspe_xg(yhat, y):
     return "rmspe", result
 
 
-def process_outliers(df):
-    dfs = []
-    for store in df['Store'].unique():
-        dfs.append(df[df['Store'] == store].copy())
-    p = Pool(8)
-    df_stores = p.map(process_outliers_store, dfs)
-    new_df = pd.concat(df_stores)
+def process_outlier_sales(df):
+    new_df = folk_join(df, fill_outlier_sales)
 
     outliers_df = new_df[new_df['Outlier']]
     log.info("size of outliers: {}".format(outliers_df.shape))
@@ -437,29 +477,34 @@ def process_outliers(df):
     log.info('process_outliers: done')
 
 
-def process_outliers_store(df):
+def folk_join(df, func, n_jobs=8, by_feat='Store'):
+    folks = []
+    for feature_val in df[by_feat].unique():
+        folks.append(df[df[by_feat] == feature_val].copy())
+    process_pool = Pool(n_jobs)
+    df_stores = process_pool.map(func, folks)
+    joined = pd.concat(df_stores)
+    return joined
+
+
+def fill_outlier_sales(df):
     type_outlier = (df['Type'] == 'train')
     # by default, values are not outlier
     df.loc[df.index, 'Outlier'] = False
     # detect outliers by test of grubbs
-    outlier_idx = grubbs.two_sided_test_indices(df[type_outlier]['Sales'], 0.05)
+    outlier_idx = grubbs.two_sided_test_indices(df[type_outlier]['SalesLog'], 0.05)
     # tag outliers
     df.loc[df.index[outlier_idx], 'Outlier'] = True
-    df.loc[(df['Sales'] == 0) & type_outlier, 'Outlier'] = True
+    df.loc[(df['SalesLog'] == 0) & type_outlier, 'Outlier'] = True
     # fill outliers with average sale
-    df.loc[(df['Outlier']) & type_outlier, 'SalesLog'] = np.log1p(df[df['Sales'] > 0]['Sales'].median())
-    df.loc[(df['Outlier']) & type_outlier, 'Sales'] = df[df['Sales'] > 0]['Sales'].median()
+    df.loc[(df['Outlier']) & type_outlier, 'SalesLog'] = df[(df['SalesLog'] > 0)]['SalesLog'].median()
+    df.loc[(df['Outlier']) & type_outlier, 'Sales'] = df[(df['Sales'] > 0)]['Sales'].median()
     return df
 
 
 def check_outliers(df):
     log.info("checking outliers with test of grubbs")
-    dfs = []
-    for store in df['Store'].unique():
-        dfs.append(df[(df['Store'] == store) & (df['Type'] == 'train')].copy())
-    p = Pool(8)
-    df_stores = p.map(test_grubbs, dfs)
-    new_df = pd.concat(df_stores)
+    new_df = folk_join(df[df['Type'] == 'train'], test_grubbs)
     new_df.to_csv(path.join(local_data_dir, 'outliers.csv'))
     log.info("checking outliers: done, total outliers: {}".format(new_df['Count'].sum()))
 
@@ -469,8 +514,9 @@ def test_grubbs(df):
     i = 0
     store = df['Store'].iloc[0]
     columns = list(df.columns)
-    columns.remove('StateHoliday')
-    columns.remove('Type')
+    for col in ['StateHoliday', 'Type', 'SalesLog', 'IsSunday', 'IsSaturday']:
+        columns.remove(col)
+
     for num_col in columns:
         outlier_idx = grubbs.two_sided_test_indices(df[num_col], 0.05)
         outlier_count = len(outlier_idx)

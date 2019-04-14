@@ -175,13 +175,13 @@ def train_xgboost(df_train, features_x, feature_y):
     num_round = 8000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
-    params = {'bst:max_depth': 15,
+    params = {'bst:max_depth': 20,
               'bst:eta': 0.02,
               'gamma': 0.5,
               'colsample_bytree': 0.6,
               'colsample_bylevel': 0.5,
               'min_child_weight': 5.0,
-              'n_estimator': 120,
+              'n_estimator': 160,
               'reg_lambda': 100.0,
               'subsample': 0.6,
               'nthread': 6,
