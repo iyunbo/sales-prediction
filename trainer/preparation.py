@@ -27,7 +27,6 @@ feat_file = 'features_x.txt'
 def load_data(debug=False):
     if already_extracted():
         log.info("features are previously extracted")
-        log.info("features: {}".format(read_features()))
         return None, None
 
     lines = 100 if debug else None
@@ -328,7 +327,9 @@ def extract_features(df_raw=None, df_store_raw=None):
     feature_y = 'SalesLog'
     if already_extracted():
         df = pd.read_pickle(path.join(local_data_dir, feat_matrix_pkl))
-        return df, read_features(), feature_y
+        features = read_features()
+        show_prepared_data(df, feature_y, features)
+        return df, features, feature_y
 
     start_time = time.time()
     df_sales, sales_features, sales_y = extract_sales_feat(df_raw)
