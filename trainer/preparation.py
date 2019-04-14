@@ -400,6 +400,16 @@ def extract_store_feat(df_store_raw):
     return df_store, store_features
 
 
+def is_near_christmas(row, days):
+    if row['Month'] != 12:
+        return 0
+    if days < 0:
+        diff_days = 25 - row['DayOfMonth']
+    else:
+        diff_days = row['DayOfMonth'] - 25
+    return 1 if abs(days) >= diff_days >= 0 else 0
+
+
 def extract_sales_feat(df_raw):
     df = df_raw.copy()
 
@@ -423,6 +433,8 @@ def extract_sales_feat(df_raw):
     df['DateInt'] = date_feat.year * 10000 + date_feat.month * 100 + date_feat.day
     df['IsSaturday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 6), axis=1).astype(np.int64)
     df['IsSunday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 7), axis=1).astype(np.int64)
+    df['SoonChristmas'] = df.apply(lambda row: is_near_christmas(row, -5), axis=1).astype(np.int64)
+    df['WasChristmas'] = df.apply(lambda row: is_near_christmas(row, 5), axis=1).astype(np.int64)
     features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
@@ -432,6 +444,8 @@ def extract_sales_feat(df_raw):
     features_x.append('DateInt')
     features_x.append('IsSaturday')
     features_x.append('IsSunday')
+    features_x.append('SoonChristmas')
+    features_x.append('WasChristmas')
     features_x.append('Id')
     log.info('extract_sales_feat: done')
 

@@ -175,7 +175,7 @@ def train_xgboost(df_train, features_x, feature_y):
     num_round = 2000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
-    params = {'max_depth': 15,
+    params = {'max_depth': 12,
               'learning_rates': 0.1,
               'gamma': 0.5,
               'colsample_bytree': 0.6,
