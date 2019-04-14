@@ -448,7 +448,8 @@ def to_weight(y):
 def rmspe(yhat, y):
     # convert to sales value as the y are in log scale
     y = np.expm1(y)
-    yhat = np.expm1(yhat)
+    # https://www.kaggle.com/c/rossmann-store-sales/discussion/17601
+    yhat = np.expm1(yhat) * 0.985
     w = to_weight(y)
     return np.sqrt(np.mean(w * (y - yhat) ** 2))
 
