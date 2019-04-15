@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from outliers import smirnov_grubbs as grubbs
+from scipy.stats import poisson
 
 log.basicConfig(level=log.INFO, format='%(asctime)s - [%(name)s] - [%(levelname)s]: %(message)s', stream=sys.stdout)
 seed = 42
@@ -212,17 +213,14 @@ def already_extracted():
 
 
 def extract_refurbishment_events(df):
-    df['WasRefurbishments'] = 0
-    df['SoonRefurbishments'] = 0
+    after_event = 'WasRefurbishments'
+    before_event = 'SoonRefurbishments'
+    df[after_event] = 0
+    df[before_event] = 0
     closed_dates = df[df['Open'] == 0]['Date'].sort_values(ascending=True)
     refurbishment_ends = find_event_ends(closed_dates)
     refurbishment_starts = find_event_starts(closed_dates, refurbishment_ends)
-    for end in refurbishment_ends:
-        for delta in [1, 2, 3, 4, 5]:
-            df.loc[(df['Date'] == end + timedelta(days=delta)) & (df['Open'] == 0), 'WasRefurbishments'] = 1
-    for start in refurbishment_starts:
-        for delta in [-1, -2, -3, -4, -5]:
-            df.loc[(df['Date'] == start + timedelta(days=delta)) & (df['Open'] == 0), 'SoonRefurbishments'] = 1
+    set_was_and_soon(df, refurbishment_ends, refurbishment_starts, after_event, before_event)
     return df
 
 
@@ -268,6 +266,29 @@ def find_event_ends(closed_dates, min_continued_days=5):
     return event_ends
 
 
+def extract_promo_events(df):
+    after_event = 'WasPromo'
+    before_event = 'SoonPromo'
+    df[after_event] = 0
+    df[before_event] = 0
+    promo_dates = df[df['Promo'] == 1]['Date'].sort_values(ascending=True)
+    promo_ends = find_event_ends(promo_dates)
+    promo_starts = find_event_starts(promo_dates, promo_ends)
+    set_was_and_soon(df, promo_ends, promo_starts, after_event, before_event)
+    return df
+
+
+def set_was_and_soon(df, ends, starts, after_event, before_event):
+    for end in ends:
+        for delta in [1, 2, 3, 4, 5]:
+            df.loc[(df['Date'] == end + timedelta(days=delta)) & (df['Open'] == 1), after_event] = \
+                poisson.pmf(k=10, mu=10, loc=delta) * 10
+    for start in starts:
+        for delta in [-1, -2, -3, -4, -5]:
+            df.loc[(df['Date'] == start + timedelta(days=delta)) & (df['Open'] == 1), before_event] = \
+                poisson.pmf(k=10, mu=10, loc=delta) * 10
+
+
 def extract_events_feat(feat_matrix, sales_features):
     log.info("extracting events feature")
 
@@ -280,6 +301,12 @@ def extract_events_feat(feat_matrix, sales_features):
     feat_matrix['WasRefurbishments'] = new_df['WasRefurbishments']
     sales_features.append('SoonRefurbishments')
     sales_features.append('WasRefurbishments')
+
+    new_df = folk_join(feat_matrix, extract_promo_events)
+    feat_matrix['SoonPromo'] = new_df['SoonPromo']
+    feat_matrix['WasPromo'] = new_df['WasPromo']
+    sales_features.append('SoonPromo')
+    sales_features.append('WasPromo')
 
     log.info("extracting events feature: done")
     return feat_matrix, sales_features
@@ -315,7 +342,7 @@ def calculate_months_since_promo2(row):
         return default_val
     least_months_since = min(least_months_since)
 
-    return (3 - least_months_since) * row['AvgSales']
+    return poisson.pmf(k=6, mu=6, loc=least_months_since)
 
 
 def extract_months_since_promo2(df):
@@ -599,7 +626,8 @@ def test_grubbs(df):
     i = 0
     store = df['Store'].iloc[0]
     columns = list(df.columns)
-    for col in ['StateHoliday', 'Type', 'SalesLog', 'IsSunday', 'IsSaturday']:
+    for col in ['StateHoliday', 'Type', 'SalesLog', 'IsSunday', 'IsSaturday', 'SoonChristmas', 'WasChristmas',
+                'WasRefurbishments', 'SoonRefurbishments']:
         columns.remove(col)
 
     for num_col in columns:

@@ -19,21 +19,21 @@ seed = 16
 
 
 def run_linear_regression(train_x, train_y, validation_x, validation_y):
-    regressor = LinearRegression(n_jobs=-1)
+    regressor = LinearRegression(n_jobs=6)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     return rmspe(yhat=predict, y=validation_y)
 
 
 def run_random_forest(train_x, train_y, validation_x, validation_y):
-    regressor = RandomForestRegressor(n_jobs=-1, random_state=seed)
+    regressor = RandomForestRegressor(n_jobs=6, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     return rmspe(predict, validation_y)
 
 
 def run_xgboost(train_x, train_y, validation_x, validation_y):
-    regressor = xgb.XGBRegressor(nthread=-1, random_state=seed)
+    regressor = xgb.XGBRegressor(nthread=6, random_state=seed)
     regressor.fit(train_x, train_y)
     predict = regressor.predict(validation_x)
     return rmspe(predict, validation_y)
