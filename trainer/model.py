@@ -1,9 +1,12 @@
+import datetime as dt
+import json
 import logging as log
 import os.path as path
 import time
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import xgboost as xgb
 from joblib import dump, load
 from sklearn.ensemble import RandomForestRegressor
@@ -11,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics.scorer import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import learning_curve
+from sqlalchemy import create_engine
 
 from .preparation import local_data_dir
 from .preparation import rmspe, rmspe_xg, rmspe_score
@@ -199,6 +203,62 @@ def train_xgboost(df_train, features_x, feature_y):
     xgb.plot_importance(best_model)
     best_model.save_model(path.join(local_data_dir, 'xgboost.model'))
     print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+
+
+def train_ensemble(df_train, features_x, feature_y):
+    start_time = time.time()
+    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
+    # prepare data structure for xgb
+    dtrain = xgb.DMatrix(train_x, train_y)
+    dvalidation = xgb.DMatrix(validation_x, validation_y)
+    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+
+    rows_list = []
+    for rnd in range(100):
+        best_model, score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation, random_state=rnd)
+        best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
+        rows_list.append({
+            'timestamp': dt.datetime.now(),
+            'random_state': rnd,
+            'score': score,
+            'model': 'xgboost',
+            'parameters': json.dumps(params),
+            'ntree_limit': ntree_limit,
+            'max_round': max_round
+        })
+        print('best tree limit:', best_model.best_ntree_limit)
+        print('XGBoost RMSPE = ', score)
+
+    models = pd.DataFrame(rows_list)
+    models.to_sql('model_%s' % dt.datetime.now().strftime('%y%m%d%H%M%S'), engine)
+    print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+
+
+def modeling_xgboost(train, validation, random_state=seed):
+    # setup parameters
+    num_round = 2000
+    evallist = [(train, 'train'), (validation, 'validation')]
+    # training
+    params = {'max_depth': 12,
+              'learning_rates': 0.1,
+              'gamma': 0.5,
+              'colsample_bytree': 0.6,
+              'colsample_bylevel': 0.5,
+              'min_child_weight': 5.0,
+              'n_estimator': 140,
+              'reg_lambda': 100.0,
+              'subsample': 0.6,
+              'nthread': 7,
+              'random_state': random_state,
+              'tree_method': 'gpu_hist',
+              'silent': True}
+    print(params)
+    best_model = xgb.train(params, train, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
+                           early_stopping_rounds=300)
+    predict = best_model.predict(validation, ntree_limit=best_model.best_ntree_limit)
+    score = rmspe_xg(predict, validation)[1]
+
+    return best_model, score, best_model.best_ntree_limit, num_round, params
 
 
 # --- 1.78 hours ---
