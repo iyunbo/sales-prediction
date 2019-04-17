@@ -1,9 +1,10 @@
 import os.path as path
 
 import numpy as np
+import pandas as pd
 import xgboost as xgb
+from sqlalchemy import create_engine
 
-from trainer.model import final_model
 from trainer.preparation import load_data, extract_features, local_data_dir
 
 
@@ -21,9 +22,28 @@ def main():
 
 
 def forecast(df_test, features_x):
-    model = final_model()
-    predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=416)
-    return np.expm1(predict).astype(int)
+    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    models = pd.read_sql_table('model_1', engine, parse_dates=['timestamp'])
+    models = models.sort_values(by='score').head(20)
+    predictions = []
+    for rnd in models['random_state']:
+        score = models[models['random_state'] == rnd]['score'].iloc[0]
+        ntree_limit = models[models['random_state'] == rnd]['ntree_limit'].iloc[0]
+        file = path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score))
+        model = xgb.Booster({'nthread': 8})  # init model
+        model.load_model(file)  # load data
+        predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=ntree_limit)
+        predictions.append(predict)
+
+    length = df_test.shape[0]
+    prediction = np.ndarray(shape=length, )
+    for ind in range(length):
+        values = []
+        for predict in predictions:
+            values.append(predict[ind])
+        prediction[ind] = np.mean(values)
+
+    return np.expm1(prediction).astype(int)
 
 
 if __name__ == '__main__':
