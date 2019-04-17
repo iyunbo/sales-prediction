@@ -26,6 +26,7 @@ def forecast(df_test, features_x):
     models = pd.read_sql_table('model_1', engine, parse_dates=['timestamp'])
     models = models.sort_values(by='score').head(20)
     predictions = []
+    weights = []
     for rnd in models['random_state']:
         score = models[models['random_state'] == rnd]['score'].iloc[0]
         ntree_limit = models[models['random_state'] == rnd]['ntree_limit'].iloc[0]
@@ -34,6 +35,7 @@ def forecast(df_test, features_x):
         model.load_model(file)  # load data
         predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=ntree_limit)
         predictions.append(predict)
+        weights.append((1 - score) / ntree_limit)
 
     length = df_test.shape[0]
     prediction = np.ndarray(shape=length, )
@@ -41,7 +43,7 @@ def forecast(df_test, features_x):
         values = []
         for predict in predictions:
             values.append(predict[ind])
-        prediction[ind] = np.mean(values)
+        prediction[ind] = np.average(values, weights=weights)
 
     return np.expm1(prediction).astype(int)
 
