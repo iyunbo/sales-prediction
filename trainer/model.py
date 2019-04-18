@@ -282,8 +282,8 @@ def tune_xgboost(df_train, features_x, feature_y):
 
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
-                                       n_iter=100,
-                                       n_jobs=4,
+                                       n_iter=80,
+                                       n_jobs=6,
                                        verbose=1,
                                        cv=5,
                                        scoring=get_scorer(),

@@ -5,7 +5,7 @@ import pandas as pd
 import xgboost as xgb
 from sqlalchemy import create_engine
 
-from trainer.preparation import load_data, extract_features, local_data_dir
+from trainer.preparation import load_data, extract_features, local_data_dir, log
 
 
 def main():
@@ -23,10 +23,22 @@ def main():
 
 def forecast(df_test, features_x):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
-    models = pd.read_sql_table('model_1', engine, parse_dates=['timestamp'])
-    models = models.sort_values(by='score').head(20)
+    list_mod = []
+    top = 10
+    for table in ['model_2']:
+        mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
+        list_mod.append(mod)
+
+    models = pd.concat(list_mod, ignore_index=True)
+    prediction = ensemble_predict(df_test, features_x, models)
+
+    return np.expm1(prediction).astype(int)
+
+
+def ensemble_predict(df_test, features_x, models):
     predictions = []
     weights = []
+    log.info("models size: {}".format(models.shape))
     for rnd in models['random_state']:
         score = models[models['random_state'] == rnd]['score'].iloc[0]
         ntree_limit = models[models['random_state'] == rnd]['ntree_limit'].iloc[0]
@@ -36,7 +48,6 @@ def forecast(df_test, features_x):
         predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=ntree_limit)
         predictions.append(predict)
         weights.append((1 - score) / ntree_limit)
-
     length = df_test.shape[0]
     prediction = np.ndarray(shape=length, )
     for ind in range(length):
@@ -44,8 +55,7 @@ def forecast(df_test, features_x):
         for predict in predictions:
             values.append(predict[ind])
         prediction[ind] = np.average(values, weights=weights)
-
-    return np.expm1(prediction).astype(int)
+    return prediction
 
 
 if __name__ == '__main__':
