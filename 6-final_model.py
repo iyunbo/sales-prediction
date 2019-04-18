@@ -29,10 +29,19 @@ def forecast(df_test, features_x):
         mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
         list_mod.append(mod)
 
-    models = pd.concat(list_mod, ignore_index=True)
-    prediction = ensemble_predict(df_test, features_x, models)
+    # models = pd.concat(list_mod, ignore_index=True)
+    # prediction = ensemble_predict(df_test, features_x, models)
+    prediction = simple_predict(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
+
+
+def simple_predict(df_test, features_x, ntree_limit=614):
+    file = path.join(local_data_dir, "xgboost.model")
+    model = xgb.Booster({'nthread': 8})  # init model
+    model.load_model(file)  # load data
+    predict = model.predict(xgb.DMatrix(df_test[features_x]), ntree_limit=ntree_limit)
+    return predict
 
 
 def ensemble_predict(df_test, features_x, models):

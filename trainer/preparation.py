@@ -511,7 +511,8 @@ def extract_sales_feat(df_raw):
 
     features_x = ['Store', 'Date', 'DayOfWeek', 'Promo', 'SchoolHoliday', 'StateHoliday', 'Type']
     features_y = ['SalesLog', 'Sales', 'Customers']
-
+    # cleaning
+    df['StateHoliday'].replace(0, '0', inplace=True)
     # log scale
     df.loc[(df['Type'] == 'train'), 'SalesLog'] = np.log1p(df.loc[(df['Type'] == 'train')]['Sales'])
     # date features
