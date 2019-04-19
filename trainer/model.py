@@ -195,14 +195,16 @@ def train_xgboost(df_train, features_x, feature_y):
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=300)
+                           early_stopping_rounds=200)
     predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dvalidation)
     print('best tree limit:', best_model.best_ntree_limit)
     print('XGBoost RMSPE = ', score)
     xgb.plot_importance(best_model)
     best_model.save_model(path.join(local_data_dir, 'xgboost.model'))
-    print("--- %.2f hours ---" % ((time.time() - start_time) / (60 * 60)))
+    duration = (time.time() - start_time) / (60 * 60)
+    print("--- %.2f hours ---" % duration)
+    return score, duration
 
 
 def train_ensemble(df_train, features_x, feature_y):
