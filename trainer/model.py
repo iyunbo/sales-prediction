@@ -65,7 +65,7 @@ def quick_score(df_train, features_x, feature_y):
     log.info("xgboost score = {}".format(score2))
     score3 = run_random_forest(train_x, train_y, validation_x, validation_y)
     log.info("random forest score = {}".format(score3))
-    return np.mean([score1, score2, score3]), (time.time() - start_time)
+    return score1, score2, score3, (time.time() - start_time)
 
 
 def run_trained_models(df_train, features_x, feature_y):
