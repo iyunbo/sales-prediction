@@ -18,12 +18,13 @@ def main():
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
     rows_list = []
 
-    base_line, duration = train_xgboost(train_df, features_x, feature_y)
+    base_line, duration = train_xgboost(train_df, features_x, feature_y, num_round=100, early_stopping_rounds=40)
     log.info("base line: {:.5f}".format(base_line))
 
     for feat in features_x:
         feature_candidates.remove(feat)
-        score, duration = train_xgboost(train_df, feature_candidates, feature_y)
+        score, duration = train_xgboost(train_df, feature_candidates, feature_y, num_round=100,
+                                        early_stopping_rounds=40)
         result = {
             'timestamp': dt.datetime.now(),
             'feature': feat,

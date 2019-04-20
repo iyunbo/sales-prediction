@@ -169,14 +169,13 @@ def evaluate_model(best_model, title, validation_x, validation_y):
     #                     n_jobs=6)
 
 
-def train_xgboost(df_train, features_x, feature_y):
+def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stopping_rounds=200):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     # prepare data structure for xgb
     dtrain = xgb.DMatrix(train_x, train_y)
     dvalidation = xgb.DMatrix(validation_x, validation_y)
     # setup parameters
-    num_round = 2000
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
     # training
     params = {'max_depth': 12,
@@ -195,7 +194,7 @@ def train_xgboost(df_train, features_x, feature_y):
 
     print(params)
     best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=200)
+                           early_stopping_rounds=early_stopping_rounds)
     predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dvalidation)
     print('best tree limit:', best_model.best_ntree_limit)
