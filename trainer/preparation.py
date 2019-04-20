@@ -355,6 +355,8 @@ def extract_features(df_raw=None, df_store_raw=None):
     if already_extracted():
         df = pd.read_pickle(path.join(local_data_dir, feat_matrix_pkl))
         features = read_features()
+        features.remove('CompetitionDistance')
+        features.remove('WasRefurbishments')
         show_prepared_data(df, feature_y, features)
         return df, features, feature_y
 
