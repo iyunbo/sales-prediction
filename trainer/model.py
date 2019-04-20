@@ -216,20 +216,23 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(100):
-        best_model, score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation, random_state=rnd)
+    for rnd in range(66, 116):
+        best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
+                                                                                          random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
         rows_list.append({
             'timestamp': dt.datetime.now(),
             'random_state': rnd,
             'score': score,
+            'train_score': train_score,
             'model': 'xgboost',
             'parameters': json.dumps(params),
             'ntree_limit': ntree_limit,
             'max_round': max_round
         })
         print('best tree limit:', best_model.best_ntree_limit)
-        print('XGBoost RMSPE = ', score)
+        print('score = ', score)
+        print('train score = ', train_score)
 
     models = pd.DataFrame(rows_list)
     models.to_sql('model_%s' % dt.datetime.now().strftime('%y%m%d%H%M%S'), engine)
@@ -259,8 +262,10 @@ def modeling_xgboost(train, validation, random_state=seed):
                            early_stopping_rounds=300)
     predict = best_model.predict(validation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, validation)[1]
+    predict = best_model.predict(train, ntree_limit=best_model.best_ntree_limit)
+    train_score = rmspe_xg(predict, train)[1]
 
-    return best_model, score, best_model.best_ntree_limit, num_round, params
+    return best_model, score, train_score, best_model.best_ntree_limit, num_round, params
 
 
 # --- 1.78 hours ---

@@ -24,14 +24,14 @@ def main():
 def forecast(df_test, features_x):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
     list_mod = []
-    top = 10
-    for table in ['model_2']:
+    top = 40
+    for table in ['model_1']:
         mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
         list_mod.append(mod)
 
-    # models = pd.concat(list_mod, ignore_index=True)
-    # prediction = ensemble_predict(df_test, features_x, models)
-    prediction = simple_predict(df_test, features_x)
+    models = pd.concat(list_mod, ignore_index=True)
+    prediction = ensemble_predict(df_test, features_x, models)
+    # prediction = simple_predict(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
 
