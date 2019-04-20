@@ -204,7 +204,7 @@ def train_xgboost(df_train, features_x, feature_y):
     best_model.save_model(path.join(local_data_dir, 'xgboost.model'))
     duration = (time.time() - start_time) / (60 * 60)
     print("--- %.2f hours ---" % duration)
-    return score, duration
+    return score[1], duration
 
 
 def train_ensemble(df_train, features_x, feature_y):

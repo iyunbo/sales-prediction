@@ -36,8 +36,9 @@ def main():
         feature_candidates.append(feat)
         log.info("{} : {} ".format(feat, score))
 
-        features = pd.DataFrame(rows_list)
-        features.to_sql('feature', engine)
+    features = pd.DataFrame(rows_list)
+    features.to_sql('feature', engine)
 
-        if __name__ == '__main__':
-            main()
+
+if __name__ == '__main__':
+    main()
