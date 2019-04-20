@@ -36,7 +36,7 @@ def forecast(df_test, features_x):
     return np.expm1(prediction).astype(int)
 
 
-def simple_predict(df_test, features_x, ntree_limit=425):
+def simple_predict(df_test, features_x, ntree_limit=508):
     file = path.join(local_data_dir, "xgboost.model")
     model = xgb.Booster({'nthread': 8})  # init model
     model.load_model(file)  # load data
