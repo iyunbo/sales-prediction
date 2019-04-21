@@ -22,21 +22,21 @@ def main():
 
 
 def forecast(df_test, features_x):
-    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
-    list_mod = []
-    top = 40
-    for table in ['model_1']:
-        mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
-        list_mod.append(mod)
-
-    models = pd.concat(list_mod, ignore_index=True)
-    prediction = ensemble_predict(df_test, features_x, models)
-    # prediction = simple_predict(df_test, features_x)
+    # engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    # list_mod = []
+    # top = 40
+    # for table in ['model_1']:
+    #     mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
+    #     list_mod.append(mod)
+    #
+    # models = pd.concat(list_mod, ignore_index=True)
+    # prediction = ensemble_predict(df_test, features_x, models)
+    prediction = simple_predict(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
 
 
-def simple_predict(df_test, features_x, ntree_limit=508):
+def simple_predict(df_test, features_x, ntree_limit=498):
     file = path.join(local_data_dir, "xgboost.model")
     model = xgb.Booster({'nthread': 8})  # init model
     model.load_model(file)  # load data

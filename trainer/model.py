@@ -21,6 +21,20 @@ from .preparation import rmspe, rmspe_xg, rmspe_score
 
 seed = 16
 
+xgb_params = {'max_depth': 12,
+              'learning_rates': 0.1,
+              'gamma': 0.65,
+              'colsample_bytree': 0.6,
+              'colsample_bylevel': 0.5,
+              'min_child_weight': 5.0,
+              'n_estimator': 135,
+              'reg_lambda': 100.0,
+              'subsample': 0.6,
+              'nthread': 7,
+              'random_state': seed,
+              'tree_method': 'gpu_hist',
+              'silent': True}
+
 
 def run_linear_regression(train_x, train_y, validation_x, validation_y):
     regressor = LinearRegression(n_jobs=6)
@@ -177,23 +191,9 @@ def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stoppin
     dvalidation = xgb.DMatrix(validation_x, validation_y)
     # setup parameters
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
-    # training
-    params = {'max_depth': 12,
-              'learning_rates': 0.1,
-              'gamma': 0.5,
-              'colsample_bytree': 0.6,
-              'colsample_bylevel': 0.5,
-              'min_child_weight': 5.0,
-              'n_estimator': 140,
-              'reg_lambda': 100.0,
-              'subsample': 0.6,
-              'nthread': 7,
-              'random_state': seed,
-              'tree_method': 'gpu_hist',
-              'silent': True}
 
-    print(params)
-    best_model = xgb.train(params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
+    print(xgb_params)
+    best_model = xgb.train(xgb_params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
                            early_stopping_rounds=early_stopping_rounds)
     predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dvalidation)
@@ -215,7 +215,7 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(66, 116):
+    for rnd in range(166, 216):
         best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
                                                                                           random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
@@ -242,29 +242,17 @@ def modeling_xgboost(train, validation, random_state=seed):
     # setup parameters
     num_round = 2000
     evallist = [(train, 'train'), (validation, 'validation')]
+    xgb_params['random_state'] = random_state
     # training
-    params = {'max_depth': 12,
-              'learning_rates': 0.1,
-              'gamma': 0.5,
-              'colsample_bytree': 0.6,
-              'colsample_bylevel': 0.5,
-              'min_child_weight': 5.0,
-              'n_estimator': 140,
-              'reg_lambda': 100.0,
-              'subsample': 0.6,
-              'nthread': 7,
-              'random_state': random_state,
-              'tree_method': 'gpu_hist',
-              'silent': True}
-    print(params)
-    best_model = xgb.train(params, train, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
+    print(xgb_params)
+    best_model = xgb.train(xgb_params, train, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
                            early_stopping_rounds=300)
     predict = best_model.predict(validation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, validation)[1]
     predict = best_model.predict(train, ntree_limit=best_model.best_ntree_limit)
     train_score = rmspe_xg(predict, train)[1]
 
-    return best_model, score, train_score, best_model.best_ntree_limit, num_round, params
+    return best_model, score, train_score, best_model.best_ntree_limit, num_round, xgb_params
 
 
 # --- 1.78 hours ---
