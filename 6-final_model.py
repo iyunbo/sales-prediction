@@ -5,20 +5,29 @@ import pandas as pd
 import xgboost as xgb
 from sqlalchemy import create_engine
 
+from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
+
+NTREE_LIMIT = 498
+ENSEMBLE = True
+TOP = 20
+MODEL_SUITE = 'model_3'
+
+
+def sub_msg():
+    model_type = "ensemble" if ENSEMBLE else "xgboost"
+    return "{}-{}-top-{}".format(MODEL_SUITE, model_type, TOP)
 
 
 def main():
     df, df_store = load_data(debug=False)
     feat_matrix, features_x, feature_y = extract_features(df, df_store)
     df_test = feat_matrix.loc[feat_matrix['Type'] == 'test'].copy()
-    predict = forecast(df_test, features_x)
-    df_test['Id'] = df_test.Id.astype(int)
-    df_test = df_test.set_index('Id')
-    df_test['Sales'] = predict
-    result = df_test[['Sales']].copy()
-    print(result.head())
-    result.to_csv(path.join(local_data_dir, 'submission.csv'))
+    predict = forecast(df_test, features_x, ENSEMBLE)
+    save_result(df_test, predict)
+    summit(sub_msg())
+    result = get_kaggle_score(sub_msg())
+    print(result)
 
 
 def calculate_summary(row):
@@ -28,25 +37,25 @@ def calculate_summary(row):
     return row['score'] + diff
 
 
-def forecast(df_test, features_x):
-    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
-    list_mod = []
-    top = 20
-    model_set = 'model_3'
-    selected_index = pd.read_sql_table('{}_score'.format(model_set), engine) \
-        .sort_values(by='private_score').head(top).index
-    for table in [model_set]:
-        mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).iloc[selected_index]
-        list_mod.append(mod)
-
-    models = pd.concat(list_mod, ignore_index=True)
-    prediction = ensemble_predict(df_test, features_x, models)
-    # prediction = simple_predict(df_test, features_x)
+def forecast(df_test, features_x, ensemble=True):
+    if ensemble:
+        prediction = ensemble_forecast(df_test, features_x)
+    else:
+        prediction = simple_forecast(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
 
 
-def simple_predict(df_test, features_x, ntree_limit=498):
+def ensemble_forecast(df_test, features_x):
+    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    selected_index = pd.read_sql_table('{}_score'.format(MODEL_SUITE), engine) \
+        .sort_values(by='private_score').head(TOP).index
+    model = pd.read_sql_table(MODEL_SUITE, engine, parse_dates=['timestamp']).iloc[selected_index]
+    prediction = ensemble_predict(df_test, features_x, model)
+    return prediction
+
+
+def simple_forecast(df_test, features_x, ntree_limit=NTREE_LIMIT):
     file = path.join(local_data_dir, "xgboost.model")
     model = xgb.Booster({'nthread': 8})  # init model
     model.load_model(file)  # load data
