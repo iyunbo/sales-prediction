@@ -384,7 +384,7 @@ def extract_features(df_raw=None, df_store_raw=None):
 
     show_prepared_data(feat_matrix, feature_y, features_x)
 
-    check_outliers(feat_matrix[features_x + [feature_y, 'Store', 'Type']])
+    check_outliers(feat_matrix[feat_matrix['Type'] == 'train'][features_x + ['Store']])
 
     feat_matrix.to_pickle(path.join(local_data_dir, feat_matrix_pkl))
     features_to_file(features_x)
@@ -618,19 +618,19 @@ def fill_outlier_sales(df):
 
 def check_outliers(df):
     log.info("checking outliers with test of grubbs")
-    new_df = folk_join(df[df['Type'] == 'train'], test_grubbs)
+    new_df = folk_join(df, test_grubbs)
     new_df.to_csv(path.join(local_data_dir, 'outliers.csv'))
     log.info("checking outliers: done, total outliers: {}".format(new_df['Count'].sum()))
+    log.info("columns: {}".format(new_df['Column'].unique()))
 
 
 def test_grubbs(df):
     outliers = pd.DataFrame(columns=['Store', 'Column', 'Count'])
-    i = 0
-    store = df['Store'].iloc[0]
-    columns = list(df.columns)
-    for col in ['Type', 'SalesLog', 'IsSunday', 'IsSaturday', 'SoonChristmas', 'WasChristmas', 'SoonRefurbishments']:
-        columns.remove(col)
+    store = df['DayOfWeek'].iloc[0]
 
+    columns = list(df.columns)
+
+    i = 0
     for num_col in columns:
         outlier_idx = grubbs.two_sided_test_indices(df[num_col], 0.05)
         outlier_count = len(outlier_idx)
