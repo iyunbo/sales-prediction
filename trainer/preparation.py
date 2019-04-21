@@ -355,8 +355,6 @@ def extract_features(df_raw=None, df_store_raw=None):
     if already_extracted():
         df = pd.read_pickle(path.join(local_data_dir, feat_matrix_pkl))
         features = read_features()
-        features.remove('CompetitionDistance')
-        features.remove('WasRefurbishments')
         show_prepared_data(df, feature_y, features)
         return df, features, feature_y
 
@@ -413,7 +411,6 @@ def show_prepared_data(feat_matrix, feature_y, features_x):
 
 def dummy_encode(feat_matrix):
     # dummy code
-    feat_matrix['StateHoliday'] = feat_matrix['StateHoliday'].astype('category').cat.codes
     feat_matrix['SchoolHoliday'] = feat_matrix['SchoolHoliday'].astype('category').cat.codes
 
 
@@ -437,6 +434,9 @@ def selected_features(sales_features, store_features):
     features_x.remove('Open')
     features_x.remove('Promo2')
     features_x.remove('PromoInterval')
+    features_x.remove('StateHoliday')
+    features_x.remove('CompetitionDistance')
+    features_x.remove('WasRefurbishments')
     log.info('selected_features: done')
     return features_x
 
@@ -534,7 +534,6 @@ def extract_sales_feat(df_raw):
     df['IsSunday'] = df.apply(lambda row: is_of_value(row, 'DayOfWeek', 7), axis=1).astype(np.int64)
     df['SoonChristmas'] = df.apply(lambda row: is_near_christmas(row, -5), axis=1).astype(np.int64)
     df['WasChristmas'] = df.apply(lambda row: is_near_christmas(row, 5), axis=1).astype(np.int64)
-    # features_x.remove('Date')
     features_x.append('Week')
     features_x.append('Month')
     features_x.append('Year')
@@ -629,8 +628,7 @@ def test_grubbs(df):
     i = 0
     store = df['Store'].iloc[0]
     columns = list(df.columns)
-    for col in ['StateHoliday', 'Type', 'SalesLog', 'IsSunday', 'IsSaturday', 'SoonChristmas', 'WasChristmas',
-                'WasRefurbishments', 'SoonRefurbishments']:
+    for col in ['Type', 'SalesLog', 'IsSunday', 'IsSaturday', 'SoonChristmas', 'WasChristmas', 'SoonRefurbishments']:
         columns.remove(col)
 
     for num_col in columns:
