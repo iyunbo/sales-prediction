@@ -194,7 +194,7 @@ def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stoppin
     evallist = [(dtrain, 'train'), (dvalidation, 'validation')]
 
     print(xgb_params)
-    best_model = xgb.train(xgb_params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
+    best_model = xgb.train(xgb_params, dtrain, num_round, evallist, feval=rmspe_xg, verbose_eval=40,
                            early_stopping_rounds=early_stopping_rounds)
     predict = best_model.predict(dvalidation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, dvalidation)
@@ -216,7 +216,7 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(266, 316):
+    for rnd in range(366, 416):
         best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
                                                                                           random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
@@ -247,7 +247,7 @@ def modeling_xgboost(train, validation, random_state=seed):
     # training
     print(xgb_params)
     best_model = xgb.train(xgb_params, train, num_round, evallist, feval=rmspe_xg, verbose_eval=100,
-                           early_stopping_rounds=300)
+                           early_stopping_rounds=200)
     predict = best_model.predict(validation, ntree_limit=best_model.best_ntree_limit)
     score = rmspe_xg(predict, validation)[1]
     predict = best_model.predict(train, ntree_limit=best_model.best_ntree_limit)
@@ -310,6 +310,7 @@ def summit(message):
 
 def get_kaggle_score(message):
     log.info('getting result of {} ...'.format(message))
+    time.sleep(3)
     result = subprocess.check_output(
         ['kaggle', 'competitions', 'submissions', '-c', 'rossmann-store-sales', '-v'])
     csv = StringIO(result.decode("utf-8"))
@@ -324,5 +325,5 @@ def save_result(test, prediction):
     test['Sales'] = prediction
     result = test[['Sales']].copy()
     log.info("saving result:")
-    print(result.head())
+    print(result.sort_index().head())
     result.to_csv(path.join(local_data_dir, submission_file))

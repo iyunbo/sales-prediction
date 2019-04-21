@@ -8,15 +8,16 @@ from sqlalchemy import create_engine
 from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
 
-NTREE_LIMIT = 498
-ENSEMBLE = True
+NTREE_LIMIT = 428
+ENSEMBLE = False
 TOP = 20
-MODEL_SUITE = 'model_3'
+MODEL_SUITE = 'model_4'
 
 
 def sub_msg():
     model_type = "ensemble" if ENSEMBLE else "xgboost"
-    return "{}-{}-top-{}".format(MODEL_SUITE, model_type, TOP)
+    top = TOP if ENSEMBLE else NTREE_LIMIT
+    return "{}-{}-top-{}".format(MODEL_SUITE, model_type, top)
 
 
 def main():
