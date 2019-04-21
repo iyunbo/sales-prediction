@@ -21,17 +21,27 @@ def main():
     result.to_csv(path.join(local_data_dir, 'submission.csv'))
 
 
+def calculate_summary(row):
+    diff = row['train_score'] - row['score']
+    if diff < 0:
+        diff = 0
+    return row['score'] + diff
+
+
 def forecast(df_test, features_x):
-    # engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
-    # list_mod = []
-    # top = 40
-    # for table in ['model_1']:
-    #     mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).sort_values(by='score').head(top)
-    #     list_mod.append(mod)
-    #
-    # models = pd.concat(list_mod, ignore_index=True)
-    # prediction = ensemble_predict(df_test, features_x, models)
-    prediction = simple_predict(df_test, features_x)
+    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    list_mod = []
+    top = 20
+    model_set = 'model_3'
+    selected_index = pd.read_sql_table('{}_score'.format(model_set), engine) \
+        .sort_values(by='private_score').head(top).index
+    for table in [model_set]:
+        mod = pd.read_sql_table(table, engine, parse_dates=['timestamp']).iloc[selected_index]
+        list_mod.append(mod)
+
+    models = pd.concat(list_mod, ignore_index=True)
+    prediction = ensemble_predict(df_test, features_x, models)
+    # prediction = simple_predict(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
 
