@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from trainer.model import summit, save_result, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir
 
-MODEL_SUITE = 'model_4'
+MODEL_SUITE = 'model_5'
 
 
 def main():
@@ -26,9 +26,10 @@ def forecast(df_test, features_x):
         test = df_test.copy()
         prediction = predict(test, features_x, mod)
         save_result(test, prediction)
-        message = 'xgboost-{}-{}'.format(mod['index'], mod['random_state'])
+        message = 'xgboost-{}-{}-{}'.format(MODEL_SUITE, mod['index'], mod['random_state'])
         summit(message)
         result = get_kaggle_score(message)
+        print(result)
         results.append({
             'index': mod['index'],
             'random_state': mod['random_state'],

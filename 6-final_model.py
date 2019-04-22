@@ -12,7 +12,7 @@ NTREE_LIMIT = 428
 ENSEMBLE = True
 TOP = 20
 TRIALS = [1, 5, 10, 15, 20, 30, 40]
-MODEL_SUITE = 'model_4'
+MODEL_SUITE = 'model_5'
 
 
 def sub_msg():
