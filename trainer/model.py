@@ -21,13 +21,13 @@ from .preparation import rmspe, rmspe_xg, rmspe_score
 seed = 16
 
 xgb_params = {'max_depth': 12,
-              'learning_rates': 0.07,
-              'gamma': 0.52,
+              'learning_rates': 0.1,
+              'gamma': 0.5,
               'colsample_bytree': 0.6,
               'colsample_bylevel': 0.5,
-              'min_child_weight': 8.5,
-              'n_estimator': 135,
-              'reg_lambda': 110.0,
+              'min_child_weight': 5.0,
+              'n_estimator': 140,
+              'reg_lambda': 100.0,
               'subsample': 0.6,
               'nthread': 7,
               'random_state': seed,
@@ -216,7 +216,7 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(366, 416):
+    for rnd in range(466, 516):
         best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
                                                                                           random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
