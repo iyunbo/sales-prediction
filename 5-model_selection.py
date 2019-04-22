@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from trainer.model import summit, save_result, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir
 
-MODEL_SUITE = 'model_3'
+MODEL_SUITE = 'model_4'
 
 
 def main():
@@ -32,8 +32,8 @@ def forecast(df_test, features_x):
         results.append({
             'index': mod['index'],
             'random_state': mod['random_state'],
-            'public_score': result['public_score'],
-            'private_score': result['private_score'],
+            'public_score': result['publicScore'],
+            'private_score': result['privateScore'],
         })
 
     res_df = pd.DataFrame(results)

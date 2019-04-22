@@ -21,13 +21,13 @@ from .preparation import rmspe, rmspe_xg, rmspe_score
 seed = 16
 
 xgb_params = {'max_depth': 12,
-              'learning_rates': 0.1,
-              'gamma': 0.65,
+              'learning_rates': 0.07,
+              'gamma': 0.52,
               'colsample_bytree': 0.6,
               'colsample_bylevel': 0.5,
-              'min_child_weight': 5.0,
+              'min_child_weight': 8.5,
               'n_estimator': 135,
-              'reg_lambda': 100.0,
+              'reg_lambda': 110.0,
               'subsample': 0.6,
               'nthread': 7,
               'random_state': seed,
@@ -263,15 +263,14 @@ def tune_xgboost(df_train, features_x, feature_y):
     param_grid = {
         'tree_method': ['gpu_hist'],
         'silent': [False],
-        'max_depth': [12, 13, 14, 15, 20],
-        'learning_rate': [0.001, 0.01, 0.1, 0.2, 1, 3],
-        'subsample': [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-        'colsample_bytree': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-        'colsample_bylevel': [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        'max_depth': [12],
+        'learning_rate': [0.01, 0.02, 0.1],
+        'subsample': [0.6],
+        'colsample_bytree': [0.4, 0.5, 0.6, 0.7, 0.8],
         'min_child_weight': [0.5, 1.0, 3.0, 5.0, 7.0, 10.0],
-        'gamma': [0, 0.25, 0.5, 1.0],
-        'reg_lambda': [0.1, 1.0, 5.0, 10.0, 50.0, 100.0],
-        'n_estimators': [50, 80, 100, 120, 160]}
+        'gamma': [0.5, 0.52, 0.54, 0.56],
+        'reg_lambda': [1.0, 5.0, 10.0, 50.0, 100.0, 120, 130],
+        'n_estimators': [100, 110, 120, 130]}
 
     regressor = xgb.XGBRegressor(nthread=-1)
 
@@ -310,7 +309,7 @@ def summit(message):
 
 def get_kaggle_score(message):
     log.info('getting result of {} ...'.format(message))
-    time.sleep(3)
+    time.sleep(5)
     result = subprocess.check_output(
         ['kaggle', 'competitions', 'submissions', '-c', 'rossmann-store-sales', '-v'])
     csv = StringIO(result.decode("utf-8"))

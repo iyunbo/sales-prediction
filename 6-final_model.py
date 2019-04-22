@@ -9,8 +9,9 @@ from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
 
 NTREE_LIMIT = 428
-ENSEMBLE = False
+ENSEMBLE = True
 TOP = 20
+TRIALS = [1, 5, 10, 15, 20, 30, 40]
 MODEL_SUITE = 'model_4'
 
 
@@ -24,33 +25,30 @@ def main():
     df, df_store = load_data(debug=False)
     feat_matrix, features_x, feature_y = extract_features(df, df_store)
     df_test = feat_matrix.loc[feat_matrix['Type'] == 'test'].copy()
-    predict = forecast(df_test, features_x, ENSEMBLE)
-    save_result(df_test, predict)
-    summit(sub_msg())
-    result = get_kaggle_score(sub_msg())
-    print(result)
+    results = []
+    for top in TRIALS:
+        predict = forecast(df_test, features_x, ENSEMBLE, top)
+        save_result(df_test, predict)
+        summit(sub_msg())
+        result = get_kaggle_score(sub_msg())
+        results.append((top, result))
+
+    print(results)
 
 
-def calculate_summary(row):
-    diff = row['train_score'] - row['score']
-    if diff < 0:
-        diff = 0
-    return row['score'] + diff
-
-
-def forecast(df_test, features_x, ensemble=True):
+def forecast(df_test, features_x, ensemble=True, top=TOP):
     if ensemble:
-        prediction = ensemble_forecast(df_test, features_x)
+        prediction = ensemble_forecast(df_test, features_x, top)
     else:
         prediction = simple_forecast(df_test, features_x)
 
     return np.expm1(prediction).astype(int)
 
 
-def ensemble_forecast(df_test, features_x):
+def ensemble_forecast(df_test, features_x, top):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
     selected_index = pd.read_sql_table('{}_score'.format(MODEL_SUITE), engine) \
-        .sort_values(by='private_score').head(TOP).index
+        .sort_values(by='private_score').head(top).index
     model = pd.read_sql_table(MODEL_SUITE, engine, parse_dates=['timestamp']).iloc[selected_index]
     prediction = ensemble_predict(df_test, features_x, model)
     return prediction
