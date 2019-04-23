@@ -22,12 +22,11 @@ seed = 16
 
 xgb_params = {'max_depth': 12,
               'learning_rates': 0.1,
-              'gamma': 0.5,
-              'colsample_bytree': 0.6,
-              'colsample_bylevel': 0.5,
-              'min_child_weight': 5.0,
-              'n_estimator': 140,
-              'reg_lambda': 100.0,
+              'gamma': 0.54,
+              'colsample_bytree': 0.7,
+              'min_child_weight': 3.0,
+              'n_estimator': 110,
+              'reg_lambda': 160,
               'subsample': 0.6,
               'nthread': 7,
               'random_state': seed,
@@ -184,7 +183,7 @@ def evaluate_model(best_model, title, validation_x, validation_y):
     #                     n_jobs=6)
 
 
-def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stopping_rounds=200):
+def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stopping_rounds=100):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
     # prepare data structure for xgb
@@ -216,7 +215,7 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(466, 516):
+    for rnd in range(566, 616):
         best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
                                                                                           random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
@@ -264,19 +263,19 @@ def tune_xgboost(df_train, features_x, feature_y):
         'tree_method': ['gpu_hist'],
         'silent': [False],
         'max_depth': [12],
-        'learning_rate': [0.01, 0.02, 0.1],
+        'learning_rate': [0.1, 0.2, 0.4],
         'subsample': [0.6],
         'colsample_bytree': [0.4, 0.5, 0.6, 0.7, 0.8],
         'min_child_weight': [0.5, 1.0, 3.0, 5.0, 7.0, 10.0],
-        'gamma': [0.5, 0.52, 0.54, 0.56],
-        'reg_lambda': [1.0, 5.0, 10.0, 50.0, 100.0, 120, 130],
+        'gamma': [0.52, 0.53, 0.54, 0.55],
+        'reg_lambda': [0.2, 0.5, 1.0, 2.0],
         'n_estimators': [100, 110, 120, 130]}
 
     regressor = xgb.XGBRegressor(nthread=-1)
 
     random_search = RandomizedSearchCV(regressor,
                                        param_grid,
-                                       n_iter=80,
+                                       n_iter=200,
                                        n_jobs=6,
                                        verbose=1,
                                        cv=5,

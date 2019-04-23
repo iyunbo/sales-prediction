@@ -8,10 +8,10 @@ from sqlalchemy import create_engine
 from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
 
-NTREE_LIMIT = 428
-ENSEMBLE = True
+NTREE_LIMIT = 606
+ENSEMBLE = False
 TOP = 20
-TRIALS = [1, 5, 10, 15, 20, 30, 40]
+TRIALS = [1]
 MODEL_SUITE = 'model_5'
 
 
