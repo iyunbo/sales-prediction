@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from trainer.model import summit, save_result, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir
 
-MODEL_SUITE = 'model_5'
+MODEL_SUITE = 'model_6'
 
 
 def main():

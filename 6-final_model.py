@@ -8,16 +8,16 @@ from sqlalchemy import create_engine
 from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
 
-NTREE_LIMIT = 606
-ENSEMBLE = False
+NTREE_LIMIT = 570
+ENSEMBLE = True
 TOP = 20
-TRIALS = [1]
-MODEL_SUITE = 'model_5'
+TRIALS = [1, 3, 5, 10, 20, 30, 40, 50]
+MODEL_SUITE = 'model_6'
 
 
-def sub_msg():
+def sub_msg(top):
     model_type = "ensemble" if ENSEMBLE else "xgboost"
-    top = TOP if ENSEMBLE else NTREE_LIMIT
+    top = top if ENSEMBLE else NTREE_LIMIT
     return "{}-{}-top-{}".format(MODEL_SUITE, model_type, top)
 
 
@@ -29,8 +29,8 @@ def main():
     for top in TRIALS:
         predict = forecast(df_test, features_x, ENSEMBLE, top)
         save_result(df_test, predict)
-        summit(sub_msg())
-        result = get_kaggle_score(sub_msg())
+        summit(sub_msg(top))
+        result = get_kaggle_score(sub_msg(top))
         results.append((top, result))
 
     print(results)

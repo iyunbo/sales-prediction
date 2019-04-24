@@ -26,7 +26,7 @@ xgb_params = {'max_depth': 12,
               'colsample_bytree': 0.7,
               'min_child_weight': 3.0,
               'n_estimator': 110,
-              'reg_lambda': 160,
+              'reg_lambda': 200,
               'subsample': 0.6,
               'nthread': 7,
               'random_state': seed,
@@ -215,7 +215,7 @@ def train_ensemble(df_train, features_x, feature_y):
     engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
 
     rows_list = []
-    for rnd in range(566, 616):
+    for rnd in range(666, 766):
         best_model, score, train_score, ntree_limit, max_round, params = modeling_xgboost(dtrain, dvalidation,
                                                                                           random_state=rnd)
         best_model.save_model(path.join(local_data_dir, "{}-xgboost-{:.5f}.model".format(rnd, score)))
