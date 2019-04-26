@@ -8,11 +8,11 @@ from sqlalchemy import create_engine
 from trainer.model import save_result, summit, get_kaggle_score
 from trainer.preparation import load_data, extract_features, local_data_dir, log
 
-NTREE_LIMIT = 680
-ENSEMBLE = False
+NTREE_LIMIT = 468
+ENSEMBLE = True
 TOP = 20
-TRIALS = [1]
-MODEL_SUITE = 'model_6'
+TRIALS = [9]
+MODEL_SUITE = 'model_7'
 
 
 def sub_msg(top):
