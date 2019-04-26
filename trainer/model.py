@@ -63,13 +63,6 @@ def train_validation(df, features_x, feature_y):
     return train[features_x], validation[features_x], train[feature_y], validation[feature_y]
 
 
-def run_models(df_train, features_x, feature_y):
-    train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
-    run_linear_regression(train_x, train_y, validation_x, validation_y)
-    run_random_forest(train_x, train_y, validation_x, validation_y)
-    run_xgboost(train_x, train_y, validation_x, validation_y)
-
-
 def quick_score(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
