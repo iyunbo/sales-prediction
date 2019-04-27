@@ -53,7 +53,7 @@ contains python code for models training:
 - XGBoost: 0.11106
 
 #### project report
-Rossman销售预测项目报告.pdf
+Rossmann_project_report.pdf
 
 #### Google Cloud Configuration
 ```
