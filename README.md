@@ -2,12 +2,12 @@
 
 ### A machine learning project for Udacity's Machine Learning Engineer Nano Degree
 
-#### Project description
+## Project description
 A kaggle competition for sales forecasting
 
 [Kaggle Project link](https://www.kaggle.com/c/rossmann-store-sales)
 
-#### Project organization
+## Project organization
 ![project structure](img/structure.png)
 - **data directory**<br>
 contains different dataset files for training and test from [project data page](https://www.kaggle.com/c/rossmann-store-sales/data), 
@@ -220,9 +220,9 @@ Name: 0, dtype: object)]
     - **feat_matrix.pkl**: persistence of feature matrix
     - ***.joblib**: persistence of models
     
-#### final score
+## final score
 - XGBoost: 0.11106
 
-#### project report
+## project report
 [PDF file](Rossmann_project_report.pdf)
 
