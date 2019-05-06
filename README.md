@@ -206,11 +206,11 @@ Name: 0, dtype: object)]
 ![kaggle results](img/kaggle_result.png)
 
 -      
-    - **trainer directory** - reusable methods ans scripts
+    - **trainer directory** - reusable methods and scripts
         - **preparation.py** - data cleaning and data engineering code
         - **models.py** - methods for models training and evaluation
         - **submit_models.py** - summit predictions to Kaggle and save results into database 
-        - **feature_selection.py** - select features which makes the score worse  
+        - **feature_selection.py** - evaluate features' contribution to the result
         - **task.py** - ensemble training task, can be executed either on **Google AI Platform** or on **local machine**
         - **util.py** - utility function for Google Storage management
     
