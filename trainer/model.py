@@ -106,6 +106,7 @@ def get_scorer():
     return make_scorer(rmspe_score, greater_is_better=False)
 
 
+# 13.3 hours
 def tune_random_forest(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
@@ -127,7 +128,7 @@ def tune_random_forest(df_train, features_x, feature_y):
     )
 
     # create random search
-    random_search = RandomizedSearchCV(random_forest, hyperparameters, random_state=seed, n_iter=50, cv=5,
+    random_search = RandomizedSearchCV(random_forest, hyperparameters, random_state=seed, n_iter=100, cv=5,
                                        scoring=get_scorer(),
                                        verbose=3, n_jobs=6)
     # training
@@ -199,6 +200,7 @@ def train_xgboost(df_train, features_x, feature_y, num_round=2000, early_stoppin
     return score[1], duration
 
 
+# 16 hours
 def train_ensemble(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)
@@ -248,7 +250,7 @@ def modeling_xgboost(train, validation, random_state=seed):
     return best_model, score, train_score, best_model.best_ntree_limit, num_round, xgb_params
 
 
-# --- 1.78 hours ---
+# --- 12.7 hours ---
 def tune_xgboost(df_train, features_x, feature_y):
     start_time = time.time()
     train_x, validation_x, train_y, validation_y = train_validation(df_train, features_x, feature_y)

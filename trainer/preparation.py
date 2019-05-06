@@ -23,6 +23,7 @@ test_filename = 'test.csv'
 store_filename = 'store_comp.csv'
 feat_matrix_pkl = 'feat_matrix.pkl'
 feat_file = 'features_x.txt'
+store_states_file = 'store_states.csv'
 
 
 def load_data(debug=False):
@@ -376,6 +377,10 @@ def extract_features(df_raw=None, df_store_raw=None):
 
     features_x = selected_features(sales_features, store_features)
 
+    feat_matrix, features_x = calculate_store_metrics(feat_matrix, features_x)
+
+    feat_matrix, features_x = integrate_weather(feat_matrix, features_x)
+
     dummy_encode(feat_matrix)
 
     check_missing(feat_matrix, features_x)
@@ -621,7 +626,7 @@ def check_outliers(df):
     new_df = folk_join(df, test_grubbs)
     new_df.to_csv(path.join(local_data_dir, 'outliers.csv'))
     log.info("checking outliers: done, total outliers: {}".format(new_df['Count'].sum()))
-    log.info("columns: {}".format(new_df['Column'].unique()))
+    log.info("outlier columns: {}".format(new_df['Column'].unique()))
 
 
 def test_grubbs(df):
@@ -639,3 +644,43 @@ def test_grubbs(df):
             i = i + 1
 
     return outliers
+
+
+def calculate_metrics(df):
+    total_sales = df['Sales'].sum()
+    total_customers = df['Customers'].sum()
+    total_sales_holiday = df[df['SchoolHoliday'] == 1]['Sales'].sum()
+    total_sales_promo = df[df['Promo'] == 1]['Sales'].sum()
+    total_sales_saturday = df[df['DayOfWeek'] == 6]['Sales'].sum()
+    df['SalesPerCustomer'] = total_sales / total_customers
+    df['RatioOnSchoolHoliday'] = total_sales_holiday / total_sales
+    df['RatioOnPromo'] = total_sales_promo / total_sales
+    df['RatioOnSaturday'] = total_sales_saturday / total_sales
+    return df
+
+
+def calculate_store_metrics(df, features):
+    new_features = features
+    new_df = folk_join(df, calculate_metrics)
+    new_features.append('SalesPerCustomer')
+    new_features.append('RatioOnSchoolHoliday')
+    new_features.append('RatioOnPromo')
+    new_features.append('RatioOnSaturday')
+    return new_df, new_features
+
+
+def integrate_weather(df, features):
+    store_states = pd.read_csv(path.join(local_data_dir, 'external', store_states_file))
+    weather = []
+    new_features = features.copy()
+    for state in store_states['State'].unique():
+        weather_state = pd.read_csv(path.join(local_data_dir, 'external', 'weather', '{}.csv'.format(state)),
+                                    delimiter=';', parse_dates=['Date'])
+        weather_state['State'] = state
+        weather.append(weather_state[['State', 'Max_TemperatureC', 'Precipitationmm', 'Date']])
+    weather_df = pd.concat(weather)
+    store_weather = pd.merge(store_states, weather_df, how='left', on=['State'])
+    new_df = pd.merge(df, store_weather, how='left', on=['Store', 'Date'])
+    new_features.append('Max_TemperatureC')
+    new_features.append('Precipitationmm')
+    return new_df, new_features

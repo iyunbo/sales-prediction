@@ -5,8 +5,8 @@ import pandas as pd
 import xgboost as xgb
 from sqlalchemy import create_engine
 
-from trainer.model import summit, save_result, get_kaggle_score
-from trainer.preparation import load_data, extract_features, local_data_dir
+from .model import summit, save_result, get_kaggle_score
+from .preparation import load_data, extract_features, local_data_dir
 
 MODEL_SUITE = 'model_7'
 
@@ -19,7 +19,7 @@ def main():
 
 
 def forecast(df_test, features_x):
-    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    engine = create_engine('sqlite:///{}'.format(path.join('..', local_data_dir, 'model.db')))
     results = []
     models = pd.read_sql_table(MODEL_SUITE, engine, parse_dates=['timestamp'])
     for index, mod in models.iterrows():

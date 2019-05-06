@@ -4,8 +4,8 @@ import os.path as path
 import pandas as pd
 from sqlalchemy import create_engine
 
-from trainer.model import train_xgboost
-from trainer.preparation import load_data, extract_features, log, local_data_dir
+from .model import train_xgboost
+from .preparation import load_data, extract_features, log, local_data_dir
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
 
     feature_candidates = features_x.copy()
 
-    engine = create_engine('sqlite:///{}'.format(path.join(local_data_dir, 'model.db')))
+    engine = create_engine('sqlite:///{}'.format(path.join('..', local_data_dir, 'model.db')))
     rows_list = []
 
     base_line, duration = train_xgboost(train_df, features_x, feature_y, num_round=100, early_stopping_rounds=40)
