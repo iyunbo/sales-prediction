@@ -7,6 +7,9 @@ A kaggle competition for sales forecasting
 
 [Kaggle Project link](https://www.kaggle.com/c/rossmann-store-sales)
 
+## library dependencies
+refer to [setup.py](setup.py)
+
 ## Project organization
 ![project structure](img/structure.png)
 - **data directory**<br>
