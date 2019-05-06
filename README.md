@@ -167,7 +167,7 @@ Process finished with exit code 0
     - **3.3-train_ensemble.py** - train ensemble models based on xgboost (duration ~ 16h)
         - results are recorded into sqlite database `model.db`
 -
-    - **3.4-train_ensemble_on_google.py** - train ensemble models on Google AI Platform (duration ~ 4h)
+    - **3.4-train_ensemble_on_google.py - Optional** - train ensemble models on Google AI Platform (duration ~ 4h)
         - setup python client environment with [this procedure](https://cloud.google.com/ml-engine/docs/tensorflow/python-client-library)
         - a billing account is required
         - the generated credentials should be set with following commands
